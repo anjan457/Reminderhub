@@ -959,7 +959,7 @@ async function runDailyDigest() {
     let emailOk = false;
     let browserOk = false;
 
-    if (settings.email && settings.browserNotifyEnabled !== false) {
+    if (settings.email) {
         emailOk = await sendDigestEmail(settings.email, subject, digestText);
     }
 
@@ -971,8 +971,13 @@ async function runDailyDigest() {
     settings.lastDigestDate = getTodayISOInTimezone(tz);
     saveNotificationSettings(settings);
 
+    var digestChannel = 'digest';
+    if (emailOk && browserOk) digestChannel = 'email+browser';
+    else if (emailOk) digestChannel = 'email';
+    else if (browserOk) digestChannel = 'browser';
+
     appendNotificationLog({
-        channel: emailOk ? 'email+browser' : (browserOk ? 'browser' : 'digest'),
+        channel: digestChannel,
         title: 'Daily digest (7:00 AM)',
         body: summary + (emailOk ? ' · Email sent' : settings.email ? ' · Email failed' : ''),
         email: settings.email || ''
@@ -2201,6 +2206,35 @@ function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.register('./sw.js', { scope: './' }).then(function (reg) {
         console.log('SW registered:', reg.scope);
+
+        function offerUpdate(worker) {
+            if (!worker) return;
+            var ok = window.confirm('New version available. Update now?');
+            if (!ok) return;
+            worker.postMessage({ type: 'SKIP_WAITING' });
+        }
+
+        if (reg.waiting) {
+            offerUpdate(reg.waiting);
+        }
+
+        reg.addEventListener('updatefound', function () {
+            var installing = reg.installing;
+            if (!installing) return;
+            installing.addEventListener('statechange', function () {
+                if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+                    offerUpdate(reg.waiting);
+                }
+            });
+        });
+
+        var refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+            if (refreshing) return;
+            refreshing = true;
+            window.location.reload();
+        });
+
         if (reg.active) {
             reg.active.postMessage({ type: 'STATE_UPDATED' });
         }

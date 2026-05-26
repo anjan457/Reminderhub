@@ -1,0 +1,39 @@
+{
+  "name": "myndly-desktop",
+  "version": "1.0.0",
+  "description": "Myndly desktop app for macOS",
+  "main": "electron/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.myndly.desktop",
+    "productName": "Myndly",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "styles.css",
+      "app.js",
+      "sw.js",
+      "sync-store.js",
+      "manifest.json",
+      "icons/**/*",
+      "electron/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    }
+  }
+}

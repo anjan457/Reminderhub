@@ -1,7 +1,7 @@
 importScripts('./sync-store.js');
 
-const CACHE_NAME = 'myndly-offline-v3';
-const APP_SHELL = ['./', './index.html', './styles.css', './app.js', './sync-store.js', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
+const CACHE_NAME = 'myndly-offline-v4';
+const APP_SHELL = ['./', './index.html', './styles.css', './app.js', './sync-store.js', './manifest.json', './icons/icon-192.svg', './icons/icon-512.svg'];
 const TODO_CHECK_MS = 30000;
 
 let todoCheckTimer = null;
@@ -101,6 +101,10 @@ self.addEventListener('fetch', function (event) {
 
 self.addEventListener('message', function (event) {
     if (!event.data) return;
+    if (event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+        return;
+    }
     if (event.data.type === 'STATE_UPDATED' || event.data.type === 'CHECK_TODOS_NOW') {
         runTodoNotificationCheck();
     }
