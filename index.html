@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Myndly</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='2' y='2' width='60' height='60' rx='18' fill='%236366f1'/><path d='M14 46 L14 22 L32 38 L50 22 L50 46' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <meta name="theme-color" content="#6366f1" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Myndly" />
+</head>
+<body>
+    <div class="shell">
+        <div class="theme-menu-wrap">
+            <!-- Quick dark mode toggle button (Feature 1) -->
+            <button class="quick-dark-btn" id="quickDarkBtn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
+
+            <button class="theme-menu-btn" id="themeMenuBtn" type="button" aria-label="Open color menu" aria-expanded="false" aria-haspopup="true">
+                <span class="theme-menu-bar"></span>
+                <span class="theme-menu-bar"></span>
+                <span class="theme-menu-bar"></span>
+            </button>
+            <div class="theme-menu-panel" id="themeMenuPanel" hidden>
+                <p class="theme-menu-label">Colors</p>
+                <div class="theme-menu-grid">
+                    <button class="btn btn-ghost btn-theme" data-theme="default" type="button">Default</button>
+                    <button class="btn btn-ghost btn-theme" data-theme="blue" type="button">Blue</button>
+                    <button class="btn btn-ghost btn-theme" data-theme="green" type="button">Green</button>
+                    <button class="btn btn-ghost btn-theme" data-theme="purple" type="button">Purple</button>
+                </div>
+                <button class="btn btn-primary theme-menu-dark" id="darkModeToggle" type="button">🌙 Dark</button>
+                <button class="btn btn-ghost theme-menu-focus" id="openFocusBtn" type="button">✦ Focus mode</button>
+                <button class="btn btn-ghost theme-menu-install" id="menuInstallBtn" type="button">📲 Install app</button>
+            </div>
+        </div>
+
+        <section class="hero">
+            <div class="hero-card">
+                <div class="myndly-brand">
+                    <!-- Animated Logo -->
+                    <div class="myndly-logo" aria-label="Myndly logo">
+                        <svg class="logo-svg" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="logoGrad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                                    <stop offset="0%" stop-color="#6366f1"/>
+                                    <stop offset="100%" stop-color="#a855f7"/>
+                                </linearGradient>
+                                <filter id="logoGlow">
+                                    <feGaussianBlur stdDeviation="2" result="blur"/>
+                                    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                </filter>
+                            </defs>
+                            <!-- Background squircle -->
+                            <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#logoGrad)" class="logo-bg"/>
+                            <!-- Pulse ring -->
+                            <rect x="2" y="2" width="60" height="60" rx="18" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2" class="logo-pulse"/>
+                            <!-- M letterform — draws itself -->
+                            <path class="logo-m" d="M14 46 L14 22 L32 38 L50 22 L50 46"
+                                stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            <!-- Orbiting glow dot -->
+                            <circle cx="32" cy="4" r="3.5" fill="white" filter="url(#logoGlow)" opacity="0.95">
+                                <animateTransform attributeName="transform" type="rotate"
+                                    from="0 32 32" to="360 32 32" dur="5s" repeatCount="indefinite"/>
+                            </circle>
+                            <!-- Second orbiting dot, opposite phase -->
+                            <circle cx="32" cy="60" r="2.5" fill="rgba(255,255,255,0.55)">
+                                <animateTransform attributeName="transform" type="rotate"
+                                    from="180 32 32" to="540 32 32" dur="5s" repeatCount="indefinite"/>
+                            </circle>
+                        </svg>
+                    </div>
+                    <div class="myndly-wordmark">
+                        <h1 class="myndly-name">Myndly</h1>
+                        <p class="myndly-tagline">Your mind, organized.</p>
+                    </div>
+                </div>
+                <p class="offline-status" id="offlineStatus" hidden></p>
+                <div class="stats">
+                    <div class="stat"><strong id="totalReminders">0</strong><span>Total Reminders</span></div>
+                    <div class="stat"><strong id="activeTodos">0</strong><span>Pending Todos</span></div>
+                    <div class="stat"><strong id="todayEvents">0</strong><span>Tasks This Month</span></div>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="layout">
+            <div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <h2>Upcoming Reminders</h2>
+                            <p>Pin reminders with order 1, 2, 3... Pinned ones stay on top.</p>
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <button class="btn btn-ghost reminder-digest-btn" id="reminderDigestBtn" type="button" title="Daily 7 AM email for upcoming reminders">🔔 7 AM</button>
+                            <!-- Show completed toggle (Feature 6) -->
+                            <button class="btn btn-ghost show-completed-btn" id="showCompletedBtn" type="button" title="Show completed reminders">Show Completed</button>
+                            <button class="btn btn-primary" id="openModalBtn" type="button">See All</button>
+                        </div>
+                    </div>
+                    <div id="homeReminderList" class="reminder-grid"></div>
+                </div>
+
+                <div class="panel" style="margin-top: 22px;">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <h2>Create Reminder</h2>
+                            <p>Add title, date, time, category, note, and optional pin order.</p>
+                        </div>
+                    </div>
+
+                    <form id="reminderForm">
+                        <div class="form-grid">
+                            <div class="form-group full">
+                                <label for="title">Reminder Title</label>
+                                <input id="title" type="text" placeholder="e.g. IELTS Exam / Meeting / Birthday"
+                                    required />
+                            </div>
+                            <div class="form-group">
+                                <label for="date">Date</label>
+                                <input id="date" type="date" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="time">Time</label>
+                                <input id="time" type="time" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="category">Category</label>
+                                <div class="cat-picker" id="reminderCatPicker" data-picker="reminder">
+                                    <button class="cat-picker-btn" id="reminderCatPickerBtn" type="button" aria-haspopup="listbox">Personal ▾</button>
+                                    <input type="hidden" id="category" value="Personal" />
+                                    <div class="cat-picker-panel" id="reminderCatPickerPanel" hidden>
+                                        <ul class="cat-picker-list" id="reminderCatPickerList"></ul>
+                                        <p class="cat-picker-foot">Right-click empty area to Add · Right-click category to Rename/Delete</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="priority">Priority</label>
+                                <select id="priority">
+                                    <option>High</option>
+                                    <option selected>Medium</option>
+                                    <option>Low</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="pinOrder">Pin Order</label>
+                                <input id="pinOrder" type="number" min="1" placeholder="Optional: 1, 2, 3" />
+                            </div>
+                            <!-- Recurring reminders (Feature 8) -->
+                            <div class="form-group">
+                                <label for="reminderRepeat">Repeat</label>
+                                <select id="reminderRepeat">
+                                    <option value="none">None</option>
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                </select>
+                            </div>
+                            <div class="form-group full">
+                                <label for="note">Note</label>
+                                <textarea id="note" placeholder="Write a small note..."></textarea>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-primary" type="submit">Add Reminder</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <h3>Todo List</h3>
+                            <p class="helper">সময় দিলে নির্বাচিত তারিখে সেই সময়ের আগে অ্যালার্ট (অফলাইনেও কাজ করে)।</p>
+                        </div>
+                    </div>
+
+                    <div class="todo-alert-banner" id="todoAlertBanner" hidden>
+                        <span>Todo সময় অনুযায়ী নোটিফিকেশন পেতে অনুমতি দিন।</span>
+                        <button class="btn btn-primary btn-sm" id="todoAlertEnableBtn" type="button">Allow alerts</button>
+                    </div>
+
+                    <div class="todo-form">
+                        <div class="todo-title-row">
+                            <input id="todoInput" type="text" placeholder="Task title with #tags…" />
+                            <button class="btn btn-primary" id="addTodoBtn" type="button">Add</button>
+                        </div>
+                        <div class="todo-meta-row">
+                            <input id="todoTimeInput" type="time" class="todo-time-input" />
+                            <div class="cat-picker" id="todoCatPicker" data-picker="todo">
+                                <button class="cat-picker-btn" id="todoCatPickerBtn" type="button" aria-haspopup="listbox">Study ▾</button>
+                                <input type="hidden" id="todoCategoryInput" value="Study" />
+                                <div class="cat-picker-panel" id="todoCatPickerPanel" hidden>
+                                    <ul class="cat-picker-list" id="todoCatPickerList"></ul>
+                                    <p class="cat-picker-foot">Right-click empty area to Add · Right-click category to Rename/Delete</p>
+                                </div>
+                            </div>
+                            <select id="todoNotifyInput">
+                                <option value="5">5 min before</option>
+                                <option value="7">7 min before</option>
+                                <option value="10">10 min before</option>
+                                <option value="15">15 min before</option>
+                                <option value="30">30 min before</option>
+                                <option value="60">1 hour before</option>
+                                <option value="120">2 hours before</option>
+                            </select>
+                        </div>
+                        <div class="todo-note-wrap">
+                            <button class="todo-note-toggle" id="todoNoteToggle" type="button">+ Note</button>
+                            <textarea id="todoNoteInput" class="todo-note-area" placeholder="Add a note…" hidden></textarea>
+                        </div>
+                    </div>
+
+                    <div class="todo-search-row">
+                        <input id="todoSearchInput" type="text" placeholder="Search tasks…" />
+                    </div>
+                    <!-- Filter chips (Feature 7) -->
+                    <div class="todo-filter-chips" id="todoFilterChips" hidden>
+                        <button class="filter-chip active" data-filter="all" type="button">All</button>
+                        <button class="filter-chip" data-filter="active" type="button">Active</button>
+                        <button class="filter-chip" data-filter="completed" type="button">Completed</button>
+                        <button class="filter-chip" data-filter="high" type="button">🔥 High</button>
+                        <button class="filter-chip" data-filter="medium" type="button">⚡ Medium</button>
+                        <button class="filter-chip" data-filter="low" type="button">🌿 Low</button>
+                    </div>
+
+                    <div id="todoList" class="todo-list"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Today FAB -->
+    <button class="today-fab" id="todayFabBtn" type="button" aria-label="Today's tasks">
+        <svg class="today-fab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+            <polyline points="9 16 11 18 15 14"/>
+        </svg>
+        <span class="today-fab-badge" id="todayFabBadge" hidden>0</span>
+    </button>
+
+    <!-- Today Panel -->
+    <div class="today-backdrop" id="todayBackdrop" hidden></div>
+    <div class="today-panel" id="todayPanel" hidden>
+        <div class="today-panel-handle" aria-hidden="true"></div>
+        <div class="today-panel-header">
+            <div>
+                <div class="today-panel-label">Today</div>
+                <div class="today-panel-date" id="currentDateLine"></div>
+            </div>
+            <button class="today-panel-close" id="todayPanelClose" type="button" aria-label="Close">✕</button>
+        </div>
+        <div class="today-panel-body" id="todayPanelBody"></div>
+    </div>
+
+    <!-- Focus Fullscreen (Feature 10, 11, 12) -->
+    <div id="focusFullscreen" class="focus-fs" hidden>
+        <div id="focusAnimLayer" class="focus-anim-layer focus-anim--none" aria-hidden="true"></div>
+        <button type="button" class="focus-back-btn" id="focusBackBtn" aria-label="Back to app">↩</button>
+
+        <!-- Pomodoro Timer (Feature 10) -->
+        <div class="pomodoro-wrap" id="pomodoroWrap">
+            <div class="pomodoro-mode" id="pomodoroMode">Focus</div>
+            <div class="pomodoro-timer" id="pomodoroTimer">25:00</div>
+            <div class="pomodoro-controls">
+                <button class="pomo-btn" id="pomodoroStart" type="button">Start</button>
+                <button class="pomo-btn" id="pomodoroReset" type="button">Reset</button>
+            </div>
+            <!-- Sessions count (Feature 12) -->
+            <div class="pomodoro-sessions" id="pomodoroSessions">Sessions today: <span id="pomodoroSessionCount">0</span></div>
+        </div>
+
+        <!-- Ambient Sounds (Feature 11) -->
+        <div class="ambient-wrap" id="ambientWrap">
+            <button class="ambient-btn" id="ambientRain" type="button" title="Rain">🌧 Rain</button>
+            <button class="ambient-btn" id="ambientForest" type="button" title="Forest">🌿 Forest</button>
+            <button class="ambient-btn" id="ambientNoise" type="button" title="White Noise">〰 Noise</button>
+        </div>
+
+        <div class="focus-switcher" id="focusSwitcher" aria-label="Animation switcher">
+            <button class="focus-sw-arr" id="focusSwPrev" aria-label="Previous animation">‹</button>
+            <span class="focus-sw-name" id="focusSwName">Breathe</span>
+            <button class="focus-sw-arr" id="focusSwNext" aria-label="Next animation">›</button>
+            <div class="focus-sw-dots" id="focusSwDots" aria-hidden="true"></div>
+        </div>
+    </div>
+
+    <div id="categoryCtxMenu" class="cat-ctx-menu" hidden role="menu">
+        <button type="button" data-ctx="add">➕ Add category</button>
+        <button type="button" data-ctx="rename">✏️ Rename</button>
+        <button type="button" data-ctx="delete">🗑️ Delete</button>
+    </div>
+
+    <div class="modal notif-settings-modal" id="notifSettingsModal">
+        <div class="modal-card notif-settings-card">
+            <div class="modal-top">
+                <div>
+                    <h2 style="margin:0;">Upcoming Reminders — Daily digest</h2>
+                    <p class="helper">Email + optional browser alert every morning at 7:00 AM (your timezone). Lists your upcoming reminders only — not todos. <strong>Email-এর জন্য ইন্টারনেট লাগবে;</strong> বাকি অ্যাপ অফলাইনে চলে।</p>
+                </div>
+                <button class="btn btn-danger" id="notifSettingsClose" type="button">Close</button>
+            </div>
+            <div class="notif-settings-form">
+                <div class="form-group">
+                    <label for="notifEmailInput">Your email</label>
+                    <input id="notifEmailInput" type="email" placeholder="you@example.com" autocomplete="email" />
+                </div>
+                <label class="notif-check-row">
+                    <input type="checkbox" id="notifDailyDigest" checked />
+                    <span>Daily upcoming reminders (7:00 AM)</span>
+                </label>
+                <label class="notif-check-row">
+                    <input type="checkbox" id="notifBrowserEnabled" checked />
+                    <span>Browser notification + email</span>
+                </label>
+                <p class="helper notif-tz-line">Timezone: <strong id="notifTimezoneLabel">—</strong></p>
+                <div class="notif-settings-actions">
+                    <button class="btn btn-primary" id="notifSaveBtn" type="button">Save settings</button>
+                    <button class="btn btn-ghost" id="notifPermissionBtn" type="button">Allow browser alerts</button>
+                </div>
+            </div>
+            <div class="notif-log-wrap">
+                <h3 class="notif-log-title">Notification history</h3>
+                <ul class="notif-log-list" id="notifLogList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="allRemindersModal">
+        <div class="modal-card">
+            <div class="modal-top">
+                <div>
+                    <h2 style="margin:0;">All Reminders</h2>
+                    <p class="helper">All saved reminders are shown here.</p>
+                </div>
+                <button class="btn btn-danger" id="closeModalBtn" type="button">Close</button>
+            </div>
+            <div id="allReminderList" class="reminder-grid"></div>
+        </div>
+    </div>
+
+
+    <footer class="site-footer">
+        <div class="site-footer-glow" aria-hidden="true"></div>
+        <div class="site-footer-inner">
+            <p class="site-footer-title">
+                Crafted with care by
+                <strong class="site-footer-brand footer-brand">Anjan
+                    <span></span>
+                </strong> 🚀
+            </p>
+            <div class="site-footer-links">
+                <a href="#" class="footer-link footer-pill">🌐 <span>Portfolio</span></a>
+                <a href="#" class="footer-link footer-pill">💻 <span>GitHub</span></a>
+                <a href="#" class="footer-link footer-pill">🔗 <span>LinkedIn</span></a>
+            </div>
+            <p class="site-footer-copy">© 2026 Myndly — All rights reserved</p>
+        </div>
+    </footer>
+
+    <div class="modal install-help-modal" id="installHelpModal">
+        <div class="modal-card install-help-card">
+            <div class="modal-top">
+                <div>
+                    <h2 style="margin:0;">Install Myndly</h2>
+                    <p class="helper" id="installHelpSummary">—</p>
+                </div>
+                <button class="btn btn-danger" id="installHelpClose" type="button">Close</button>
+            </div>
+            <ul class="install-help-steps" id="installHelpSteps"></ul>
+            <p class="helper install-help-note" id="installHelpNote"></p>
+        </div>
+    </div>
+
+    <div class="install-banner" id="installBanner" hidden>
+        <div class="install-banner-inner">
+            <p><strong>Myndly ইনস্টল করুন</strong> — অফলাইনে ব্যবহার করুন, হোম স্ক্রিনে রাখুন।</p>
+            <div class="install-banner-actions">
+                <button class="btn btn-primary btn-sm" id="installAppBtn" type="button">Install app</button>
+                <button class="btn btn-ghost btn-sm" id="installDismissBtn" type="button">Later</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="sync-store.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
