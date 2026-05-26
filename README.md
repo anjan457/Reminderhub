@@ -28,10 +28,11 @@ Open the URL shown (e.g. `http://localhost:3000`) — **do not** open `index.htm
 
 ## GitHub Pages
 
-1. Push this repo to GitHub
-2. **Settings** → **Pages** → Source: **Deploy from branch**
-3. Branch: `main`, folder: `/ (root)`
-4. Site URL: `https://<username>.github.io/<repo-name>/`
+1. Push to `main` (workflow `.github/workflows/pages.yml` deploys automatically)
+2. Repo **Settings** → **Pages** → **Build and deployment** → Source: **GitHub Actions**
+3. After the first workflow run (1–3 min), open: `https://anjan457.github.io/Reminderhub/`
+
+If you see **404**: Pages is not enabled yet — complete step 2 above, then check **Actions** tab for a green deploy.
 
 ## Tech
 
