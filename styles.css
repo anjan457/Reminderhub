@@ -1031,11 +1031,12 @@ textarea {
 }
 .todo-meta-row {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 10px;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 8px;
 }
 .todo-meta-row .cat-picker { min-width: 0; }
 .todo-time-input { min-width: 0; }
+.todo-date-input { min-width: 0; }
 .todo-note-wrap { display: flex; flex-direction: column; gap: 6px; }
 .todo-note-toggle {
     align-self: flex-start;

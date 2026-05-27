@@ -49,6 +49,7 @@ const todoTimeInput = document.getElementById('todoTimeInput');
 const todoCategoryInput = document.getElementById('todoCategoryInput');
 const todoNoteInput = document.getElementById('todoNoteInput');
 const todoNotifyInput = document.getElementById('todoNotifyInput');
+const todoDateInput = document.getElementById('todoDateInput');
 const todoSearchInput = document.getElementById('todoSearchInput');
 const reminderDigestBtn = document.getElementById('reminderDigestBtn');
 const notifSettingsModal = document.getElementById('notifSettingsModal');
@@ -1233,7 +1234,7 @@ async function addTodo() {
             time: todoTimeInput.value,
             category: category,
             notifyBefore: todoNotifyInput.value,
-            date: selectedCalendarDate,
+            date: todoDateInput && todoDateInput.value ? todoDateInput.value : getTodayISO(),
             priority: 'Medium',
             note: todoNoteInput.value.trim()
         });
@@ -1242,6 +1243,7 @@ async function addTodo() {
         sortDailyTasks();
         todoInput.value = '';
         todoTimeInput.value = '';
+        if (todoDateInput) todoDateInput.value = '';
         setPickerValue(getPickerByKey('todo'), 'Study');
         todoNotifyInput.value = '5';
         todoNoteInput.value = '';
@@ -1397,6 +1399,25 @@ function escapeHTML(str) {
         .replace(/'/g, '&#039;');
 }
 
+function playSoftPing() {
+    try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.5);
+        osc.onended = function() { ctx.close(); };
+    } catch(e) { /* ignore if audio not supported */ }
+}
+
 function maybeNotifyTodos() {
     if (!window.MyndlySync) return;
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -1406,6 +1427,7 @@ function maybeNotifyTodos() {
         try {
             new Notification('Myndly — Todo', { body: body, tag: 'myndly-todo-' + todo.id });
         } catch (e) { /* ignore */ }
+        playSoftPing();
         appendNotificationLog({ channel: 'browser', title: 'Todo Reminder', body: body });
     });
     if (result.changed) {
@@ -3006,6 +3028,7 @@ window.openNoteEditor = openNoteEditor;
 /* ════════════════════════════════════════
    Init
 ════════════════════════════════════════ */
+if (todoDateInput) todoDateInput.value = getTodayISO();
 loadCustomCategories();
 sortReminders();
 sortDailyTasks();
