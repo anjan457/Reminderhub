@@ -1421,6 +1421,48 @@ textarea {
 
 
 /* ── Today FAB ── */
+.todo-trash-fab {
+    position: fixed;
+    bottom: 96px;
+    right: 34px;
+    z-index: 501;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
+    background: color-mix(in srgb, var(--danger) 12%, var(--panel));
+    color: color-mix(in srgb, var(--danger) 92%, var(--text));
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.14);
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+.todo-trash-fab:hover {
+    transform: translateY(-2px) scale(1.04);
+    background: color-mix(in srgb, var(--danger) 20%, var(--panel));
+}
+.todo-trash-fab-badge {
+    position: absolute;
+    top: -2px;
+    right: -3px;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 0.62rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 2px solid var(--panel);
+}
+.todo-trash-fab-badge[hidden] { display: none; }
+
 .today-fab {
     position: fixed;
     bottom: 28px;
@@ -1537,6 +1579,31 @@ textarea {
     color: var(--muted);
     margin-top: 2px;
 }
+.today-panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.today-panel-clear {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--danger) 10%, var(--panel-soft));
+    color: color-mix(in srgb, var(--danger) 90%, var(--text));
+    font: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s, transform 0.2s;
+    flex-shrink: 0;
+}
+.today-panel-clear:hover {
+    background: color-mix(in srgb, var(--danger) 20%, var(--panel-soft));
+    transform: translateY(-1px);
+}
 .today-panel-close {
     width: 34px;
     height: 34px;
@@ -1554,6 +1621,13 @@ textarea {
     flex-shrink: 0;
 }
 .today-panel-close:hover { background: var(--border); color: var(--text); }
+.today-section-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 4px 4px 0;
+}
 .today-panel-body {
     overflow-y: auto;
     padding: 14px 18px 32px;

@@ -66,6 +66,41 @@ npm run dist:mac
 2. **Custom domain:** leave **empty** (do not type the github.io URL there)
 3. Open: `https://anjan457.github.io/Reminderhub/` (wait 2–10 min after first setup)
 
+## Recent updates (work log)
+
+### PWA + installability
+
+- Service worker cache versioning and instant update flow (`SKIP_WAITING` + reload) added.
+- Manifest and app icon paths corrected to valid PNG assets for reliable install prompt.
+- Offline shell caching and install prompt flow improved for Chrome/PWA usage.
+
+### Notification + digest fixes
+
+- Daily digest logic fixed: email now sends even when browser alerts are disabled.
+- Notification history channel tagging improved (`email`, `browser`, `email+browser`, `digest`).
+- Todo reminder permission + background sync flow refined through service worker state updates.
+
+### Todo / Today panel improvements
+
+- Duplicate add protection implemented for todos (guard + temporary add-button disable).
+- Duplicate Today entries fixed (todo + linked planner mirror no longer shown twice).
+- Today panel now separates `Today Tasks` and `Completed` sections.
+- Added Today panel clear-completed action (with confirmation).
+- Added floating Trash button above Today FAB; completed tasks move to Trash view.
+- Todo filter chip label updated from `Completed` to `Trash`; default list emphasizes active items.
+
+### Desktop app packaging
+
+- Electron wrapper added (`electron/main.js`) for macOS desktop runtime.
+- Build scripts added in `package.json` (`npm start`, `npm run dist:mac`).
+- macOS artifacts (`.dmg`, `.zip`) generation documented and tested.
+
+### Project hygiene + docs
+
+- `dist/` added to `.gitignore` to avoid committing build artifacts.
+- `ROADMAP.md` added for future cloud sync/auth/email plan.
+- README expanded with PWA behavior, release checklist, macOS run/build instructions, and this work log.
+
 ## Tech
 
 Static HTML, CSS, JS — `localStorage` + IndexedDB + Service Worker. No build step.

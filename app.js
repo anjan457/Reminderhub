@@ -66,9 +66,12 @@ const selectedDateTasks = document.getElementById('selectedDateTasks');
 const currentDateLine = document.getElementById('currentDateLine');
 const todayFabBtn = document.getElementById('todayFabBtn');
 const todayFabBadge = document.getElementById('todayFabBadge');
+const todoTrashFabBtn = document.getElementById('todoTrashFabBtn');
+const todoTrashFabBadge = document.getElementById('todoTrashFabBadge');
 const todayPanel = document.getElementById('todayPanel');
 const todayBackdrop = document.getElementById('todayBackdrop');
 const todayPanelClose = document.getElementById('todayPanelClose');
+const todayClearBtn = document.getElementById('todayClearBtn');
 const todayPanelBody = document.getElementById('todayPanelBody');
 const categorySelect = document.getElementById('category');
 const categoryCtxMenu = document.getElementById('categoryCtxMenu');
@@ -111,6 +114,7 @@ let todos = normalizeTodos(readStorageArray(STORAGE_KEYS.todos));
 let dailyTasks = normalizeDailyTasks(readStorageArray(STORAGE_KEYS.dailyTasks));
 let calendarDate = new Date();
 let selectedCalendarDate = getTodayISO();
+let isAddingTodo = false;
 
 function getTodayISO() {
     const now = new Date();
@@ -1146,14 +1150,23 @@ function initFilterChips() {
     });
 }
 
+function setActiveTodoFilter(filter) {
+    activeTodoFilter = filter;
+    if (!todoFilterChips) return;
+    todoFilterChips.querySelectorAll('.filter-chip').forEach(function (chip) {
+        chip.classList.toggle('active', chip.getAttribute('data-filter') === filter);
+    });
+}
+
 function filterTodosByChip(todoArr) {
     switch (activeTodoFilter) {
+        case 'all': return todoArr.filter(function(t) { return !t.completed; });
         case 'active': return todoArr.filter(function(t) { return !t.completed; });
         case 'completed': return todoArr.filter(function(t) { return t.completed; });
         case 'high': return todoArr.filter(function(t) { return t.priority === 'High'; });
         case 'medium': return todoArr.filter(function(t) { return t.priority === 'Medium'; });
         case 'low': return todoArr.filter(function(t) { return t.priority === 'Low'; });
-        default: return todoArr;
+        default: return todoArr.filter(function(t) { return !t.completed; });
     }
 }
 
@@ -1205,40 +1218,48 @@ function sortDailyTasks() {
 }
 
 async function addTodo() {
+    if (isAddingTodo) return;
     const title = todoInput.value.trim();
     if (!title) return;
-    if (todoTimeInput.value) {
-        await ensureTodoNotificationPermission();
+    isAddingTodo = true;
+    if (addTodoBtn) addTodoBtn.disabled = true;
+    try {
+        if (todoTimeInput.value) {
+            await ensureTodoNotificationPermission();
+        }
+        const category = todoCategoryInput.value;
+        const todo = createTodoObject({
+            title: title,
+            time: todoTimeInput.value,
+            category: category,
+            notifyBefore: todoNotifyInput.value,
+            date: selectedCalendarDate,
+            priority: 'Medium',
+            note: todoNoteInput.value.trim()
+        });
+        todos.unshift(todo);
+        syncTodoIntoCalendar(todo);
+        sortDailyTasks();
+        todoInput.value = '';
+        todoTimeInput.value = '';
+        setPickerValue(getPickerByKey('todo'), 'Study');
+        todoNotifyInput.value = '5';
+        todoNoteInput.value = '';
+        var noteToggle = document.getElementById('todoNoteToggle');
+        if (noteToggle && !todoNoteInput.hidden) {
+            todoNoteInput.hidden = true;
+            noteToggle.textContent = '+ Note';
+            noteToggle.classList.remove('open');
+        }
+        saveTodos();
+        saveDailyTasks();
+        renderTodos();
+        updateStats();
+        renderCalendar();
+    } finally {
+        isAddingTodo = false;
+        if (addTodoBtn) addTodoBtn.disabled = false;
     }
-    const category = todoCategoryInput.value;
-    const todo = createTodoObject({
-        title: title,
-        time: todoTimeInput.value,
-        category: category,
-        notifyBefore: todoNotifyInput.value,
-        date: selectedCalendarDate,
-        priority: 'Medium',
-        note: todoNoteInput.value.trim()
-    });
-    todos.unshift(todo);
-    syncTodoIntoCalendar(todo);
-    sortDailyTasks();
-    todoInput.value = '';
-    todoTimeInput.value = '';
-    setPickerValue(getPickerByKey('todo'), 'Study');
-    todoNotifyInput.value = '5';
-    todoNoteInput.value = '';
-    var noteToggle = document.getElementById('todoNoteToggle');
-    if (noteToggle && !todoNoteInput.hidden) {
-        todoNoteInput.hidden = true;
-        noteToggle.textContent = '+ Note';
-        noteToggle.classList.remove('open');
-    }
-    saveTodos();
-    saveDailyTasks();
-    renderTodos();
-    updateStats();
-    renderCalendar();
 }
 
 function matchesTodoSearch(todo, query) {
@@ -1513,6 +1534,7 @@ function renderTodos() {
 
     if (filtered.length === 0) {
         todoList.innerHTML = emptyStateHTML('📋', 'No tasks found', todos.length === 0 ? 'Add your first task above!' : 'Try a different search or filter.');
+        updateTodoTrashFabBadge();
         return;
     }
     todoList.innerHTML = filtered.map(function (todo) {
@@ -1563,6 +1585,7 @@ function renderTodos() {
     }).join('');
     // Re-attach swipe listeners
     attachSwipeListeners();
+    updateTodoTrashFabBadge();
 }
 
 // Helper called from inline onclick
@@ -1589,8 +1612,15 @@ function getSelectedDateCombinedTasks() {
         };
     });
 
+    const linkedTodoIds = new Set(calendarTodos.map(function (todo) {
+        return todo.id;
+    }));
+
     const plannerTasks = dailyTasks.filter(function (task) {
-        return task.date === selectedCalendarDate;
+        if (task.date !== selectedCalendarDate) return false;
+        // Hide mirrored planner rows for todos to avoid duplicate cards.
+        if (task.linkedTodoId && linkedTodoIds.has(task.linkedTodoId)) return false;
+        return true;
     }).map(function (task) {
         return {
             id: task.id,
@@ -1710,7 +1740,14 @@ function getTodayTasks() {
     var todayTodos = todos.filter(function (t) { return t.date === todayISO; }).map(function (t) {
         return { id: t.id, source: 'todo', title: t.title, time: t.time, category: t.category, priority: t.priority, note: t.note, tags: t.tags || [], completed: t.completed };
     });
-    var todayPlanner = dailyTasks.filter(function (t) { return t.date === todayISO; }).map(function (t) {
+
+    var todayTodoIds = new Set(todayTodos.map(function (t) { return t.id; }));
+    var todayPlanner = dailyTasks.filter(function (t) {
+        if (t.date !== todayISO) return false;
+        // Hide mirrored planner rows for todos to avoid duplicate cards.
+        if (t.linkedTodoId && todayTodoIds.has(t.linkedTodoId)) return false;
+        return true;
+    }).map(function (t) {
         return { id: t.id, source: 'planner', title: t.title, time: t.time, category: t.category, priority: t.priority, note: t.note, tags: t.tags || [], completed: t.completed };
     });
     return todayTodos.concat(todayPlanner).sort(function (a, b) {
@@ -1729,6 +1766,17 @@ function updateTodayFabBadge() {
     }
 }
 
+function updateTodoTrashFabBadge() {
+    if (!todoTrashFabBadge) return;
+    var count = todos.filter(function (todo) { return todo.completed; }).length;
+    if (count > 0) {
+        todoTrashFabBadge.textContent = count > 99 ? '99+' : String(count);
+        todoTrashFabBadge.hidden = false;
+    } else {
+        todoTrashFabBadge.hidden = true;
+    }
+}
+
 function renderTodayPanel() {
     if (!todayPanelBody) return;
     var tasks = getTodayTasks();
@@ -1736,7 +1784,10 @@ function renderTodayPanel() {
         todayPanelBody.innerHTML = emptyStateHTML('🎉', 'All clear for today!', 'No tasks scheduled. Enjoy your day.');
         return;
     }
-    todayPanelBody.innerHTML = tasks.map(function (task) {
+    var pending = tasks.filter(function (task) { return !task.completed; });
+    var completed = tasks.filter(function (task) { return task.completed; });
+
+    function renderTaskCard(task) {
         var toggleFn = task.source === 'todo' ? 'toggleTodo' : 'toggleDailyTask';
         var deleteFn = task.source === 'todo' ? 'deleteTodo' : 'deleteDailyTask';
         var sourceLabel = task.source === 'todo' ? 'Todo' : 'Task';
@@ -1750,7 +1801,34 @@ function renderTodayPanel() {
             '</div></div>' +
             '<button class="btn btn-danger btn-sm" type="button" onclick="' + deleteFn + '(' + task.id + ');renderTodayPanel();updateTodayFabBadge();">×</button>' +
             '</div>';
-    }).join('');
+    }
+
+    var html = '';
+    if (pending.length) {
+        html += '<div class="today-section-label">Today Tasks</div>' + pending.map(renderTaskCard).join('');
+    }
+    if (completed.length) {
+        html += '<div class="today-section-label">Completed</div>' + completed.map(renderTaskCard).join('');
+    }
+    todayPanelBody.innerHTML = html;
+}
+
+function clearTodayCompletedTasks() {
+    var todayISO = getTodayISO();
+    todos = todos.filter(function (todo) {
+        return !(todo.date === todayISO && todo.completed);
+    });
+    dailyTasks = dailyTasks.filter(function (task) {
+        return !(task.date === todayISO && task.completed);
+    });
+    saveTodos();
+    saveDailyTasks();
+    renderTodos();
+    renderCalendar();
+    renderSelectedDateTasks();
+    renderTodayPanel();
+    updateStats();
+    updateTodayFabBadge();
 }
 
 function openTodayPanel() {
@@ -1778,12 +1856,31 @@ function closeTodayPanel() {
     }, 420);
 }
 
+todayClearBtn?.addEventListener('click', function () {
+    var hasCompleted = getTodayTasks().some(function (task) { return task.completed; });
+    if (!hasCompleted) {
+        alert('No completed tasks for today.');
+        return;
+    }
+    var ok = confirm('আজকের completed task গুলো delete করতে চান?');
+    if (!ok) return;
+    clearTodayCompletedTasks();
+});
+
+todoTrashFabBtn?.addEventListener('click', function () {
+    setActiveTodoFilter('completed');
+    renderTodos();
+    var todoSection = document.querySelector('.todo-section');
+    if (todoSection) todoSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
 function renderAll() {
     renderReminderLists();
     renderTodos();
     renderCalendar();
     updateStats();
     updateTodayFabBadge();
+    updateTodoTrashFabBadge();
 }
 
 /* ════════════════════════════════════════
