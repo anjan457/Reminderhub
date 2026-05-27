@@ -1,7 +1,7 @@
 importScripts('./sync-store.js');
 
-const CACHE_NAME = 'myndly-offline-v4';
-const APP_SHELL = ['./', './index.html', './styles.css', './app.js', './sync-store.js', './manifest.json', './icons/icon-192.svg', './icons/icon-512.svg'];
+const CACHE_NAME = 'myndly-offline-v5';
+const APP_SHELL = ['./', './index.html', './styles.css', './app.js', './sync-store.js', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 const TODO_CHECK_MS = 30000;
 
 let todoCheckTimer = null;

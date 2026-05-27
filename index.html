@@ -7,7 +7,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='2' y='2' width='60' height='60' rx='18' fill='%236366f1'/><path d='M14 46 L14 22 L32 38 L50 22 L50 46' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="manifest" href="manifest.json" />
-    <link rel="apple-touch-icon" href="icons/icon-192.svg" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <meta name="theme-color" content="#6366f1" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -35,6 +35,7 @@
                 <button class="btn btn-primary theme-menu-dark" id="darkModeToggle" type="button">🌙 Dark</button>
                 <button class="btn btn-ghost theme-menu-focus" id="openFocusBtn" type="button">✦ Focus mode</button>
                 <button class="btn btn-ghost theme-menu-install" id="menuInstallBtn" type="button">📲 Install app</button>
+                <button class="btn btn-ghost theme-menu-game" id="openWordGameBtn" type="button">🔍 Word Search</button>
             </div>
         </div>
 
@@ -250,6 +251,62 @@
         <span class="today-fab-badge" id="todayFabBadge" hidden>0</span>
     </button>
 
+    <!-- Notes FAB -->
+    <button class="notes-fab" id="notesFabBtn" type="button" aria-label="Notes">
+        <svg class="notes-fab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <line x1="10" y1="9" x2="8" y2="9"/>
+        </svg>
+        <span class="notes-fab-badge" id="notesFabBadge" hidden>0</span>
+    </button>
+
+    <!-- Notes Panel -->
+    <div class="notes-backdrop" id="notesBackdrop" hidden></div>
+    <div class="notes-panel" id="notesPanel" hidden>
+        <div class="notes-panel-handle" aria-hidden="true"></div>
+        <div class="notes-panel-header">
+            <div class="notes-panel-title">Notes</div>
+            <div class="notes-panel-actions">
+                <button class="notes-new-btn" id="notesNewBtn" type="button">+ New</button>
+                <button class="notes-panel-close" id="notesPanelClose" type="button" aria-label="Close">✕</button>
+            </div>
+        </div>
+        <div class="notes-search-row">
+            <input id="notesSearchInput" type="text" placeholder="Search notes…" />
+        </div>
+        <div class="notes-panel-body" id="notesPanelBody"></div>
+    </div>
+
+    <!-- Note Editor -->
+    <div class="note-editor-overlay" id="noteEditorOverlay" hidden>
+        <div class="note-editor">
+            <div class="note-editor-topbar">
+                <button class="note-editor-back" id="noteEditorBack" type="button">← Back</button>
+                <div class="note-editor-toolbar">
+                    <div class="note-color-picker" id="noteColorPicker">
+                        <button class="note-color-dot" data-color="default" style="background:#6366f1" title="Default" type="button"></button>
+                        <button class="note-color-dot" data-color="yellow" style="background:#eab308" title="Yellow" type="button"></button>
+                        <button class="note-color-dot" data-color="pink" style="background:#ec4899" title="Pink" type="button"></button>
+                        <button class="note-color-dot" data-color="blue" style="background:#3b82f6" title="Blue" type="button"></button>
+                        <button class="note-color-dot" data-color="green" style="background:#22c55e" title="Green" type="button"></button>
+                        <button class="note-color-dot" data-color="purple" style="background:#a855f7" title="Purple" type="button"></button>
+                    </div>
+                    <button class="note-pin-btn" id="noteEditorPinBtn" type="button" title="Pin note">📌</button>
+                    <button class="note-delete-btn" id="noteEditorDeleteBtn" type="button" title="Delete note">🗑</button>
+                </div>
+            </div>
+            <input class="note-editor-title" id="noteEditorTitle" type="text" placeholder="Title…" />
+            <textarea class="note-editor-content" id="noteEditorContent" placeholder="Start writing…"></textarea>
+            <div class="note-editor-footer">
+                <span class="note-editor-ts" id="noteEditorTimestamp"></span>
+                <span class="note-editor-saved" id="noteEditorSaved"></span>
+            </div>
+        </div>
+    </div>
+
     <!-- Today Panel -->
     <div class="today-backdrop" id="todayBackdrop" hidden></div>
     <div class="today-panel" id="todayPanel" hidden>
@@ -350,6 +407,30 @@
         </div>
     </div>
 
+
+    <!-- Word Search Game -->
+    <div id="wordGameOverlay" class="word-game-overlay" hidden>
+        <div class="word-game-inner">
+            <div class="word-game-topbar">
+                <div class="word-game-logo">
+                    <span class="word-game-logo-icon">🔍</span>
+                    <span class="word-game-title">Word Search</span>
+                </div>
+                <div class="word-game-topbar-right">
+                    <span class="ws-timer" id="wsTimer">0:00</span>
+                    <button class="word-game-close" id="wordGameClose" type="button" aria-label="Close">✕</button>
+                </div>
+            </div>
+            <div class="ws-stats">
+                <span id="wsFoundCount">0 / 8 found</span>
+                <span class="ws-hint">Drag to select letters</span>
+            </div>
+            <div class="ws-grid" id="wsGrid"></div>
+            <div class="word-game-message" id="wordGameMessage"></div>
+            <div class="ws-word-list" id="wsWordList"></div>
+            <button class="word-game-new-btn" id="wordGameNewBtn" type="button" hidden>New Game</button>
+        </div>
+    </div>
 
     <footer class="site-footer">
         <div class="site-footer-glow" aria-hidden="true"></div>

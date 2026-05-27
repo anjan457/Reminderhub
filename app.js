@@ -9,7 +9,8 @@ const STORAGE_KEYS = {
     focusSessions: 'rh_focus_sessions',
     reminderShowCompleted: 'rh_reminder_show_completed',
     notificationSettings: 'rh_notification_settings',
-    notificationLog: 'rh_notification_log'
+    notificationLog: 'rh_notification_log',
+    notes: 'rh_notes'
 };
 
 const FOCUS_ANIMS = ['breathe', 'aurora', 'waves', 'orbit', 'ripple', 'nebula', 'float', 'none'];
@@ -518,11 +519,11 @@ function categoryExistsAnywhere(name) {
 function addCustomCategory(rawName, pickerKey) {
     const name = String(rawName || '').trim();
     if (!name) {
-        alert('ক্যাটাগরির নাম লিখুন।');
+        alert('Please enter a category name.');
         return false;
     }
     if (categoryExistsAnywhere(name)) {
-        alert('এই নামের ক্যাটাগরি আগে থেকেই আছে।');
+        alert('A category with this name already exists.');
         return false;
     }
     customCategories.push(name);
@@ -538,12 +539,12 @@ function renameCategory(oldName, pickerKey) {
     if (next === null) return;
     const trimmed = next.trim();
     if (!trimmed) {
-        alert('নাম খালি রাখা যাবে না।');
+        alert('Name cannot be empty.');
         return;
     }
     if (trimmed.toLowerCase() === String(oldName).toLowerCase()) return;
     if (categoryExistsAnywhere(trimmed)) {
-        alert('এই নামের ক্যাটাগরি আগে থেকেই আছে।');
+        alert('A category with this name already exists.');
         return;
     }
     const idx = customCategories.findIndex(function (n) {
@@ -568,10 +569,10 @@ function renameCategory(oldName, pickerKey) {
 
 function deleteCategory(name) {
     if (String(name).toLowerCase() === 'personal') {
-        alert('Personal ক্যাটাগরি delete করা যাবে না।');
+        alert('The Personal category cannot be deleted.');
         return;
     }
-    if (!confirm('Delete "' + name + '"? এই ক্যাটাগরির সব আইটেম Personal-এ যাবে।')) return;
+    if (!confirm('Delete "' + name + '"? All items in this category will move to Personal.')) return;
     customCategories = customCategories.filter(function (n) {
         return n.toLowerCase() !== String(name).toLowerCase();
     });
@@ -1549,7 +1550,7 @@ function renderTodos() {
             '<span>📅 ' + formatDate(todo.date) + '</span>' +
             '<span>🕒 ' + to12Hour(todo.time) + '</span>' +
             '<span class="category-chip">🏷 ' + escapeHTML(todo.category) + '</span>' +
-            '<span>🔔 ' + escapeHTML(String(todo.notifyBefore)) + ' min আগে</span>' +
+            '<span>🔔 ' + escapeHTML(String(todo.notifyBefore)) + ' min before</span>' +
             '</div>' +
             (todo.note ? '<div class="helper">📝 ' + escapeHTML(todo.note) + '</div>' : '') +
             tagsHtml +
@@ -2101,7 +2102,7 @@ function buildInstallHelpContent() {
 
     if (blockers.indexOf('already_installed') >= 0) {
         return {
-            summary: 'Myndly ইতিমধ্যে ইনস্টল করা আছে। হোম স্ক্রিন বা অ্যাপ লিস্ট থেকে খুলুন।',
+            summary: 'Myndly is already installed. Open it from your home screen or app list.',
             steps: [],
             note: ''
         };
@@ -2109,63 +2110,63 @@ function buildInstallHelpContent() {
 
     if (blockers.indexOf('file_protocol') >= 0) {
         return {
-            summary: 'ফোল্ডার থেকে সরাসরি খোলায় Chrome Install দেখায় না।',
+            summary: 'Chrome cannot install from a local file — you need a server.',
             steps: [
-                'Terminal খুলুন: cd Desktop/notify',
-                'চালান: npx serve .',
-                'ব্রাউজারে দেখানো http://localhost:... লিংক খুলুন',
-                'তারপর ☰ মেনু → Install app, অথবা Chrome মেনু (⋮) → Install'
+                'Open Terminal: cd Desktop/notify',
+                'Run: npx serve .',
+                'Open the http://localhost:... link shown in the browser',
+                'Then ☰ menu → Install app, or Chrome menu (⋮) → Install'
             ],
-            note: 'file:/// দিয়ে খুললে কখনোই Install আসে না — অবশ্যই localhost বা https লাগবে।'
+            note: 'file:/// URLs never trigger install — you must use localhost or https.'
         };
     }
 
     if (blockers.indexOf('not_secure') >= 0) {
         return {
-            summary: 'এই ঠিকানায় Install সমর্থিত নয় (HTTPS বা localhost লাগবে)।',
-            steps: ['সাইট https:// বা http://localhost দিয়ে হোস্ট করুন'],
+            summary: 'Install is not supported on this URL (HTTPS or localhost required).',
+            steps: ['Host the site via https:// or http://localhost'],
             note: ''
         };
     }
 
     if (isIOS) {
         return {
-            summary: 'iPhone/iPad-এ Chrome-এর Install নেই — Safari ব্যবহার করুন।',
+            summary: 'Chrome on iPhone/iPad cannot install — use Safari instead.',
             steps: [
-                'Safari-তে সাইট খুলুন',
-                'নিচের Share বাটন (□↗) চাপুন',
+                'Open the site in Safari',
+                'Tap the Share button (□↗) at the bottom',
                 'Add to Home Screen → Add'
             ],
-            note: 'iOS-এ PWA শুধু Safari থেকে হোম স্ক্রিনে যোগ করা যায়।'
+            note: 'On iOS, PWAs can only be added to the home screen via Safari.'
         };
     }
 
     if (isAndroid) {
         steps = [
-            'Chrome-এ সাইট খুলুন (localhost বা https)',
-            'উপরে ডানে ⋮ মেনু → Install app বা Add to Home screen',
-            'না থাকলে ☰ মেনু → Install app চাপুন (এই সাইটের বাটন)'
+            'Open the site in Chrome (localhost or https)',
+            'Tap ⋮ menu (top-right) → Install app or Add to Home screen',
+            'If missing, tap ☰ menu → Install app (button on this site)'
         ];
-        note = 'কখনো কখনো ২–৩০ সেকেন্ড সাইটে থাকলে Install অপশন আসে।';
+        note = 'Sometimes the Install option appears after staying on the site for a few seconds.';
     } else {
         steps = [
-            'Chrome/Edge-এ http://localhost বা https লিংক খুলুন',
-            'ঠিকানা বারের ডানে ⊕ Install (থাকলে)',
-            'না থাকলে ⋮ মেনু → Install Myndly / Install app',
-            'অথবা এই সাইটের ☰ মেনু → Install app'
+            'Open http://localhost or an https link in Chrome/Edge',
+            'Look for ⊕ Install in the address bar (right side)',
+            'Or ⋮ menu → Install Myndly / Install app',
+            'Or this site\u2019s \u2630 menu \u2192 Install app'
         ];
-        note = 'Install না এলে: DevTools → Application → Manifest — Errors দেখুন।';
+        note = 'If Install doesn\u2019t appear: DevTools \u2192 Application \u2192 Manifest \u2014 check for errors.';
     }
 
     if (deferredInstallPrompt) {
         return {
-            summary: 'ইনস্টল প্রস্তুত — নিচের বাটন চাপুন।',
-            steps: ['☰ মেনু → Install app চাপুন', 'অথবা পেজের নিচের Install app ব্যানার'],
+            summary: 'Ready to install — tap the button below.',
+            steps: ['Tap ☰ menu → Install app', 'Or use the Install app banner at the bottom of the page'],
             note: ''
         };
     }
 
-    return { summary: 'Chrome এখনও Install অফার করছে না।', steps: steps, note: note };
+    return { summary: 'Chrome has not offered Install yet.', steps: steps, note: note };
 }
 
 function openInstallHelpModal() {
@@ -2175,7 +2176,7 @@ function openInstallHelpModal() {
     if (installHelpSteps) {
         installHelpSteps.innerHTML = content.steps.length
             ? content.steps.map(function (s) { return '<li>' + escapeHTML(s) + '</li>'; }).join('')
-            : '<li>কোনো অতিরিক্ত ধাপ নেই।</li>';
+            : '<li>No additional steps needed.</li>';
     }
     if (installHelpNote) installHelpNote.textContent = content.note || '';
     installHelpModal.classList.add('open');
@@ -2284,7 +2285,7 @@ function initOfflineStatus() {
     var el = document.getElementById('offlineStatus');
     if (!el) return;
     function update() {
-        el.textContent = navigator.onLine ? '' : 'Offline — সব ডেটা এই ডিভাইসে সংরক্ষিত';
+        el.textContent = navigator.onLine ? '' : 'Offline — all data saved on this device';
         el.hidden = navigator.onLine;
     }
     window.addEventListener('online', update);
@@ -2337,6 +2338,556 @@ function runAppTests() {
 }
 
 /* ════════════════════════════════════════
+   Word Search Game
+════════════════════════════════════════ */
+const WS_SIZE = 10;
+const WS_DIRS = [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
+const WS_COLORS = ['#6366f1','#22c55e','#f59e0b','#ec4899','#14b8a6','#f97316','#8b5cf6','#3b82f6'];
+const WS_WORD_SETS = [
+    ['RIVER','CLOUD','STORM','EARTH','OCEAN','FROST','FLAME','STONE','PLANT','BLOOM'],
+    ['TIGER','HORSE','EAGLE','SHARK','WHALE','CRANE','RAVEN','MOUSE','SNAKE','ROBIN'],
+    ['BRAIN','DANCE','GRACE','HEART','JUICE','LIGHT','MONEY','NIGHT','PAINT','DREAM'],
+    ['MAPLE','CREEK','MARSH','RIDGE','ABBEY','GROVE','BLAZE','FROST','CEDAR','CLIFF'],
+    ['BRAVE','QUEST','PRIDE','CHARM','SWIFT','POWER','GLORY','CREST','VALOR','FLINT'],
+    ['PIANO','VIOLA','CHORD','TEMPO','BEATS','MUSIC','SOUND','NOTES','LYRIC','SCORE'],
+    ['AMBER','AZURE','CORAL','IVORY','OLIVE','PEARL','ROUGE','TAWNY','LILAC','EBONY'],
+    ['CLIMB','SCOUT','MARCH','TRAIL','QUEST','FORGE','REACH','BOUND','SURGE','DRIVE'],
+];
+
+let wsGrid = [];
+let wsPlaced = [];
+let wsFound = new Set();
+let wsSelecting = false;
+let wsStartCell = null;
+let wsHighlighted = [];
+let wsTimerInterval = null;
+let wsSeconds = 0;
+let wsGameActive = false;
+
+function wsShuffleArray(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    }
+    return arr;
+}
+
+function wsPlaceWord(grid, word) {
+    var dirs = wsShuffleArray(WS_DIRS.slice());
+    var positions = [];
+    for (var r = 0; r < WS_SIZE; r++)
+        for (var c = 0; c < WS_SIZE; c++)
+            positions.push([r, c]);
+    wsShuffleArray(positions);
+    for (var pi = 0; pi < positions.length; pi++) {
+        var r0 = positions[pi][0], c0 = positions[pi][1];
+        for (var di = 0; di < dirs.length; di++) {
+            var dr = dirs[di][0], dc = dirs[di][1];
+            var cells = [], ok = true;
+            for (var i = 0; i < word.length; i++) {
+                var r = r0 + dr * i, c = c0 + dc * i;
+                if (r < 0 || r >= WS_SIZE || c < 0 || c >= WS_SIZE) { ok = false; break; }
+                if (grid[r][c] !== '' && grid[r][c] !== word[i]) { ok = false; break; }
+                cells.push({r: r, c: c});
+            }
+            if (ok) {
+                cells.forEach(function(cell, i) { grid[cell.r][cell.c] = word[i]; });
+                return cells;
+            }
+        }
+    }
+    return null;
+}
+
+function wsNewGame() {
+    var setIdx = Math.floor(Math.random() * WS_WORD_SETS.length);
+    var words = wsShuffleArray(WS_WORD_SETS[setIdx].slice()).slice(0, 8);
+    wsGrid = [];
+    for (var r = 0; r < WS_SIZE; r++) wsGrid.push(new Array(WS_SIZE).fill(''));
+    wsPlaced = [];
+    words.forEach(function(word) {
+        var cells = wsPlaceWord(wsGrid, word);
+        if (cells) wsPlaced.push({word: word, cells: cells, color: null});
+    });
+    var letters = 'ABCDEFGHIKLMNOPRSTWY';
+    for (var r = 0; r < WS_SIZE; r++)
+        for (var c = 0; c < WS_SIZE; c++)
+            if (!wsGrid[r][c]) wsGrid[r][c] = letters[Math.floor(Math.random() * letters.length)];
+    wsFound = new Set();
+    wsSelecting = false;
+    wsStartCell = null;
+    wsHighlighted = [];
+    wsSeconds = 0;
+    wsGameActive = true;
+    clearInterval(wsTimerInterval);
+    wsTimerInterval = setInterval(wsTickTimer, 1000);
+    wsRenderGrid();
+    wsRenderWordList();
+    wsUpdateStats();
+    var msg = document.getElementById('wordGameMessage');
+    if (msg) { msg.textContent = ''; msg.className = 'word-game-message'; }
+    var newBtn = document.getElementById('wordGameNewBtn');
+    if (newBtn) newBtn.hidden = true;
+}
+
+function wsTickTimer() {
+    if (!wsGameActive) return;
+    wsSeconds++;
+    var el = document.getElementById('wsTimer');
+    if (el) el.textContent = Math.floor(wsSeconds/60) + ':' + (wsSeconds%60 < 10 ? '0' : '') + (wsSeconds%60);
+}
+
+function wsUpdateStats() {
+    var el = document.getElementById('wsFoundCount');
+    if (el) el.textContent = wsFound.size + ' / ' + wsPlaced.length + ' found';
+}
+
+function wsGetCellEl(r, c) {
+    var grid = document.getElementById('wsGrid');
+    return grid ? grid.querySelector('[data-r="' + r + '"][data-c="' + c + '"]') : null;
+}
+
+function wsApplyColors() {
+    document.querySelectorAll('.ws-cell').forEach(function(el) {
+        el.style.background = '';
+        el.style.color = '';
+        el.classList.remove('ws-found', 'ws-selected');
+    });
+    wsPlaced.forEach(function(entry) {
+        if (!wsFound.has(entry.word)) return;
+        entry.cells.forEach(function(cell) {
+            var el = wsGetCellEl(cell.r, cell.c);
+            if (el) { el.style.background = entry.color; el.style.color = '#fff'; el.classList.add('ws-found'); }
+        });
+    });
+    wsHighlighted.forEach(function(cell) {
+        var el = wsGetCellEl(cell.r, cell.c);
+        if (el && !el.classList.contains('ws-found')) el.classList.add('ws-selected');
+    });
+}
+
+function wsGetLineCells(r1, c1, r2, c2) {
+    var dr = r2 - r1, dc = c2 - c1;
+    var adr = Math.abs(dr), adc = Math.abs(dc);
+    var sdr = dr === 0 ? 0 : (dr > 0 ? 1 : -1);
+    var sdc = dc === 0 ? 0 : (dc > 0 ? 1 : -1);
+    var len;
+    if (adr === 0 && adc === 0) return [{r: r1, c: c1}];
+    if (adr === 0) { len = adc + 1; }
+    else if (adc === 0) { len = adr + 1; }
+    else if (adr === adc) { len = adr + 1; }
+    else if (adr > adc * 2) { sdc = 0; len = adr + 1; }
+    else if (adc > adr * 2) { sdr = 0; len = adc + 1; }
+    else { len = Math.min(adr, adc) + 1; }
+    var cells = [];
+    for (var i = 0; i < len; i++) {
+        var r = r1 + sdr * i, c = c1 + sdc * i;
+        if (r >= 0 && r < WS_SIZE && c >= 0 && c < WS_SIZE) cells.push({r: r, c: c});
+    }
+    return cells;
+}
+
+function wsCheckSelection() {
+    if (wsHighlighted.length < 2) return;
+    var selected = wsHighlighted.map(function(cell) { return wsGrid[cell.r][cell.c]; }).join('');
+    var rev = selected.split('').reverse().join('');
+    var colorIdx = wsFound.size;
+    for (var i = 0; i < wsPlaced.length; i++) {
+        var entry = wsPlaced[i];
+        if (wsFound.has(entry.word)) continue;
+        if (selected === entry.word || rev === entry.word) {
+            entry.color = WS_COLORS[colorIdx % WS_COLORS.length];
+            wsFound.add(entry.word);
+            wsApplyColors();
+            wsRenderWordList();
+            wsUpdateStats();
+            wsShowMsg('✓ ' + entry.word, 'win');
+            setTimeout(function() {
+                var m = document.getElementById('wordGameMessage');
+                if (m) { m.textContent = ''; m.className = 'word-game-message'; }
+            }, 1000);
+            if (wsFound.size === wsPlaced.length) {
+                wsGameActive = false;
+                clearInterval(wsTimerInterval);
+                var t = Math.floor(wsSeconds/60) + ':' + (wsSeconds%60 < 10 ? '0' : '') + (wsSeconds%60);
+                wsShowMsg('🎉 All found! Time: ' + t, 'win');
+                var newBtn = document.getElementById('wordGameNewBtn');
+                if (newBtn) newBtn.hidden = false;
+            }
+            return;
+        }
+    }
+}
+
+function wsShowMsg(msg, type) {
+    var el = document.getElementById('wordGameMessage');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'word-game-message visible' + (type ? ' wg-msg-' + type : '');
+}
+
+function wsRenderGrid() {
+    var container = document.getElementById('wsGrid');
+    if (!container) return;
+    container.innerHTML = '';
+    for (var r = 0; r < WS_SIZE; r++) {
+        for (var c = 0; c < WS_SIZE; c++) {
+            var cell = document.createElement('div');
+            cell.className = 'ws-cell';
+            cell.textContent = wsGrid[r][c];
+            cell.dataset.r = r;
+            cell.dataset.c = c;
+            container.appendChild(cell);
+        }
+    }
+    wsBindGridEvents(container);
+}
+
+function wsBindGridEvents(container) {
+    function cellFromEl(el) {
+        var c = el.closest ? el.closest('.ws-cell') : (el.classList.contains('ws-cell') ? el : null);
+        return c ? {r: +c.dataset.r, c: +c.dataset.c} : null;
+    }
+    function cellFromPoint(x, y) {
+        var el = document.elementFromPoint(x, y);
+        return el ? cellFromEl(el) : null;
+    }
+    container.addEventListener('mousedown', function(e) {
+        var cell = cellFromEl(e.target);
+        if (!cell) return;
+        wsSelecting = true; wsStartCell = cell;
+        wsHighlighted = [cell]; wsApplyColors(); e.preventDefault();
+    });
+    container.addEventListener('mousemove', function(e) {
+        if (!wsSelecting || !wsStartCell) return;
+        var cell = cellFromEl(e.target);
+        if (!cell) return;
+        wsHighlighted = wsGetLineCells(wsStartCell.r, wsStartCell.c, cell.r, cell.c);
+        wsApplyColors();
+    });
+    document.addEventListener('mouseup', function() {
+        if (!wsSelecting) return;
+        wsSelecting = false; wsCheckSelection();
+        wsHighlighted = []; wsApplyColors(); wsStartCell = null;
+    });
+    container.addEventListener('touchstart', function(e) {
+        var t = e.touches[0];
+        var cell = cellFromPoint(t.clientX, t.clientY);
+        if (!cell) return;
+        wsSelecting = true; wsStartCell = cell;
+        wsHighlighted = [cell]; wsApplyColors(); e.preventDefault();
+    }, {passive: false});
+    container.addEventListener('touchmove', function(e) {
+        if (!wsSelecting || !wsStartCell) return;
+        var t = e.touches[0];
+        var cell = cellFromPoint(t.clientX, t.clientY);
+        if (!cell) return;
+        wsHighlighted = wsGetLineCells(wsStartCell.r, wsStartCell.c, cell.r, cell.c);
+        wsApplyColors(); e.preventDefault();
+    }, {passive: false});
+    container.addEventListener('touchend', function() {
+        if (!wsSelecting) return;
+        wsSelecting = false; wsCheckSelection();
+        wsHighlighted = []; wsApplyColors(); wsStartCell = null;
+    });
+}
+
+function wsRenderWordList() {
+    var container = document.getElementById('wsWordList');
+    if (!container) return;
+    container.innerHTML = wsPlaced.map(function(entry) {
+        var f = wsFound.has(entry.word);
+        return '<span class="ws-word' + (f ? ' ws-word-found' : '') + '"' +
+            (f ? ' style="color:' + entry.color + '"' : '') + '>' + entry.word + '</span>';
+    }).join('');
+}
+
+function openWordGame() {
+    closeThemeMenu();
+    var overlay = document.getElementById('wordGameOverlay');
+    if (!overlay) return;
+    overlay.hidden = false;
+    requestAnimationFrame(function() { overlay.classList.add('open'); });
+    if (!wsGameActive && wsPlaced.length === 0) wsNewGame();
+}
+
+function closeWordGame() {
+    var overlay = document.getElementById('wordGameOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('open');
+    setTimeout(function() { overlay.hidden = true; }, 300);
+}
+
+function initWordGame() {
+    document.getElementById('openWordGameBtn')?.addEventListener('click', openWordGame);
+    document.getElementById('wordGameClose')?.addEventListener('click', closeWordGame);
+    document.getElementById('wordGameNewBtn')?.addEventListener('click', wsNewGame);
+}
+
+/* ════════════════════════════════════════
+   Notes System
+════════════════════════════════════════ */
+const NOTE_COLORS = {
+    default: { bg: 'var(--panel)',  accent: 'var(--primary)' },
+    yellow:  { bg: '#fefce8',       accent: '#ca8a04' },
+    pink:    { bg: '#fdf2f8',       accent: '#db2777' },
+    blue:    { bg: '#eff6ff',       accent: '#2563eb' },
+    green:   { bg: '#f0fdf4',       accent: '#16a34a' },
+    purple:  { bg: '#faf5ff',       accent: '#9333ea' },
+};
+const NOTE_COLORS_DARK = {
+    default: { bg: 'var(--panel)',  accent: 'var(--primary)' },
+    yellow:  { bg: '#1c1800',       accent: '#eab308' },
+    pink:    { bg: '#1f0a14',       accent: '#f472b6' },
+    blue:    { bg: '#071524',       accent: '#60a5fa' },
+    green:   { bg: '#061410',       accent: '#4ade80' },
+    purple:  { bg: '#130a24',       accent: '#c084fc' },
+};
+
+let notes = [];
+let activeNoteId = null;
+let notesSearchQuery = '';
+let noteAutoSaveTimer = null;
+
+function loadNotes() {
+    try { notes = JSON.parse(localStorage.getItem(STORAGE_KEYS.notes) || '[]'); }
+    catch(e) { notes = []; }
+}
+
+function saveNotes() {
+    localStorage.setItem(STORAGE_KEYS.notes, JSON.stringify(notes));
+}
+
+function createNoteObject(fields) {
+    const now = new Date().toISOString();
+    return { id: Date.now(), title: fields.title || '', content: fields.content || '', color: fields.color || 'default', pinned: false, createdAt: now, updatedAt: now };
+}
+
+function getNoteById(id) {
+    return notes.find(function(n) { return n.id === id; });
+}
+
+function noteColorBg(color) {
+    const palette = document.body.classList.contains('dark') ? NOTE_COLORS_DARK : NOTE_COLORS;
+    return (palette[color] || palette.default).bg;
+}
+
+function noteColorAccent(color) {
+    const palette = document.body.classList.contains('dark') ? NOTE_COLORS_DARK : NOTE_COLORS;
+    return (palette[color] || palette.default).accent;
+}
+
+function updateNotesFabBadge() {
+    var badge = document.getElementById('notesFabBadge');
+    if (!badge) return;
+    badge.textContent = notes.length;
+    badge.hidden = notes.length === 0;
+}
+
+function formatNoteDate(iso) {
+    var d = new Date(iso);
+    var diff = Date.now() - d;
+    var mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return mins + 'm ago';
+    var hours = Math.floor(diff / 3600000);
+    if (hours < 24) return hours + 'h ago';
+    var days = Math.floor(diff / 86400000);
+    if (days < 7) return days + 'd ago';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function renderNotesList() {
+    var body = document.getElementById('notesPanelBody');
+    if (!body) return;
+    var q = notesSearchQuery.trim().toLowerCase();
+    var filtered = notes.filter(function(n) {
+        if (!q) return true;
+        return n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q);
+    });
+    filtered.sort(function(a, b) {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return new Date(b.updatedAt) - new Date(a.updatedAt);
+    });
+    if (filtered.length === 0) {
+        body.innerHTML = '<div class="empty-state-nice"><span class="empty-icon">📝</span><p class="empty-title">' + (q ? 'No notes found' : 'No notes yet') + '</p><p class="empty-sub">' + (q ? 'Try a different search.' : 'Tap + New to write your first note.') + '</p></div>';
+        return;
+    }
+    body.innerHTML = filtered.map(function(n) {
+        var preview = n.content.replace(/\s+/g, ' ').trim();
+        if (preview.length > 80) preview = preview.slice(0, 80) + '…';
+        var ts = formatNoteDate(n.updatedAt);
+        var bg = noteColorBg(n.color);
+        var accent = noteColorAccent(n.color);
+        return '<div class="note-card" onclick="openNoteEditor(' + n.id + ')" style="--note-bg:' + bg + ';--note-accent:' + accent + '">' +
+            '<div class="note-card-top"><span class="note-card-title">' + (n.title ? escapeHTML(n.title) : '<span class="note-card-untitled">Untitled</span>') + '</span>' + (n.pinned ? '<span class="note-card-pin">📌</span>' : '') + '</div>' +
+            (preview ? '<p class="note-card-preview">' + escapeHTML(preview) + '</p>' : '') +
+            '<span class="note-card-ts">' + ts + '</span></div>';
+    }).join('');
+}
+
+function openNotesPanel() {
+    var panel = document.getElementById('notesPanel');
+    var backdrop = document.getElementById('notesBackdrop');
+    if (!panel || !backdrop) return;
+    renderNotesList();
+    panel.hidden = false;
+    backdrop.hidden = false;
+    requestAnimationFrame(function() {
+        panel.classList.add('open');
+        backdrop.classList.add('open');
+    });
+}
+
+function closeNotesPanel() {
+    var panel = document.getElementById('notesPanel');
+    var backdrop = document.getElementById('notesBackdrop');
+    if (!panel) return;
+    panel.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('open');
+    setTimeout(function() {
+        panel.hidden = true;
+        if (backdrop) backdrop.hidden = true;
+    }, 320);
+}
+
+function updateNoteEditorColor(color) {
+    var overlay = document.getElementById('noteEditorOverlay');
+    if (!overlay) return;
+    overlay.style.setProperty('--note-editor-bg', noteColorBg(color));
+    overlay.style.setProperty('--note-editor-accent', noteColorAccent(color));
+    document.querySelectorAll('.note-color-dot').forEach(function(dot) {
+        dot.classList.toggle('active', dot.dataset.color === color);
+    });
+}
+
+function openNoteEditor(id) {
+    var overlay = document.getElementById('noteEditorOverlay');
+    if (!overlay) return;
+    closeNotesPanel();
+    var note = id ? getNoteById(id) : null;
+    if (!note) {
+        note = createNoteObject({});
+        notes.unshift(note);
+        saveNotes();
+        updateNotesFabBadge();
+    }
+    activeNoteId = note.id;
+    var titleEl = document.getElementById('noteEditorTitle');
+    var contentEl = document.getElementById('noteEditorContent');
+    var tsEl = document.getElementById('noteEditorTimestamp');
+    var pinBtn = document.getElementById('noteEditorPinBtn');
+    if (titleEl) titleEl.value = note.title;
+    if (contentEl) contentEl.value = note.content;
+    if (tsEl) tsEl.textContent = 'Edited ' + formatNoteDate(note.updatedAt);
+    if (pinBtn) pinBtn.classList.toggle('active', note.pinned);
+    updateNoteEditorColor(note.color);
+    overlay.hidden = false;
+    requestAnimationFrame(function() { overlay.classList.add('open'); });
+    setTimeout(function() {
+        if (titleEl && !note.title) titleEl.focus();
+        else if (contentEl) contentEl.focus();
+    }, 60);
+}
+
+function closeNoteEditor() {
+    var overlay = document.getElementById('noteEditorOverlay');
+    if (!overlay) return;
+    flushNoteAutoSave();
+    overlay.classList.remove('open');
+    setTimeout(function() { overlay.hidden = true; }, 280);
+    activeNoteId = null;
+}
+
+function noteAutoSave() {
+    clearTimeout(noteAutoSaveTimer);
+    noteAutoSaveTimer = setTimeout(flushNoteAutoSave, 700);
+}
+
+function flushNoteAutoSave() {
+    clearTimeout(noteAutoSaveTimer);
+    if (!activeNoteId) return;
+    var note = getNoteById(activeNoteId);
+    if (!note) return;
+    var titleEl = document.getElementById('noteEditorTitle');
+    var contentEl = document.getElementById('noteEditorContent');
+    if (titleEl) note.title = titleEl.value;
+    if (contentEl) note.content = contentEl.value;
+    note.updatedAt = new Date().toISOString();
+    saveNotes();
+    var tsEl = document.getElementById('noteEditorTimestamp');
+    var savedEl = document.getElementById('noteEditorSaved');
+    if (tsEl) tsEl.textContent = 'Edited just now';
+    if (savedEl) {
+        savedEl.textContent = 'Saved ✓';
+        clearTimeout(savedEl._hideTimer);
+        savedEl._hideTimer = setTimeout(function() { savedEl.textContent = ''; }, 1800);
+    }
+}
+
+function deleteNoteById(id) {
+    notes = notes.filter(function(n) { return n.id !== id; });
+    saveNotes();
+    updateNotesFabBadge();
+    closeNoteEditor();
+    openNotesPanel();
+}
+
+function initNotes() {
+    loadNotes();
+    updateNotesFabBadge();
+
+    document.getElementById('notesFabBtn')?.addEventListener('click', openNotesPanel);
+    document.getElementById('notesPanelClose')?.addEventListener('click', closeNotesPanel);
+    document.getElementById('notesBackdrop')?.addEventListener('click', closeNotesPanel);
+    document.getElementById('notesNewBtn')?.addEventListener('click', function() { openNoteEditor(null); });
+
+    var notesSearch = document.getElementById('notesSearchInput');
+    if (notesSearch) notesSearch.addEventListener('input', function() {
+        notesSearchQuery = this.value;
+        renderNotesList();
+    });
+
+    document.getElementById('noteEditorBack')?.addEventListener('click', function() {
+        flushNoteAutoSave();
+        closeNoteEditor();
+        openNotesPanel();
+    });
+
+    document.getElementById('noteEditorTitle')?.addEventListener('input', noteAutoSave);
+    document.getElementById('noteEditorContent')?.addEventListener('input', noteAutoSave);
+
+    document.getElementById('noteEditorPinBtn')?.addEventListener('click', function() {
+        if (!activeNoteId) return;
+        var note = getNoteById(activeNoteId);
+        if (!note) return;
+        note.pinned = !note.pinned;
+        note.updatedAt = new Date().toISOString();
+        saveNotes();
+        this.classList.toggle('active', note.pinned);
+    });
+
+    document.getElementById('noteEditorDeleteBtn')?.addEventListener('click', function() {
+        if (!activeNoteId) return;
+        if (!confirm('Delete this note?')) return;
+        deleteNoteById(activeNoteId);
+    });
+
+    document.querySelectorAll('.note-color-dot').forEach(function(dot) {
+        dot.addEventListener('click', function() {
+            if (!activeNoteId) return;
+            var note = getNoteById(activeNoteId);
+            if (!note) return;
+            note.color = this.dataset.color;
+            note.updatedAt = new Date().toISOString();
+            saveNotes();
+            updateNoteEditorColor(note.color);
+        });
+    });
+}
+
+/* ════════════════════════════════════════
    Global exports
 ════════════════════════════════════════ */
 window.deleteReminder = deleteReminder;
@@ -2353,6 +2904,7 @@ window.toggleSubtask = toggleSubtask;
 window.addSubtaskFromInput = addSubtaskFromInput;
 window.renderTodayPanel = renderTodayPanel;
 window.updateTodayFabBadge = updateTodayFabBadge;
+window.openNoteEditor = openNoteEditor;
 
 /* ════════════════════════════════════════
    Init
@@ -2376,6 +2928,8 @@ registerServiceWorker();
 initInstallPrompt();
 initOfflineStatus();
 initTodoAlertBanner();
+initWordGame();
+initNotes();
 pushStateToOfflineStore();
 document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') {
