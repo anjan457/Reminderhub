@@ -1,10 +1,33 @@
 importScripts('./sync-store.js');
 
-const CACHE_NAME = 'myndly-offline-v5';
+const CACHE_NAME = 'myndly-offline-v6';
 const APP_SHELL = ['./', './index.html', './styles.css', './app.js', './sync-store.js', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 const TODO_CHECK_MS = 30000;
+// These files always try network first so updates show immediately
+const NETWORK_FIRST = ['index.html', 'app.js', 'styles.css', 'sync-store.js'];
 
 let todoCheckTimer = null;
+
+function isNetworkFirst(url) {
+    return url.pathname === '/' || url.pathname.endsWith('/') ||
+        NETWORK_FIRST.some(function(f) { return url.pathname.endsWith(f); });
+}
+
+function networkFirst(request) {
+    return fetch(request).then(function(response) {
+        if (response.ok) {
+            var clone = response.clone();
+            caches.open(CACHE_NAME).then(function(cache) { cache.put(request, clone); });
+        }
+        return response;
+    }).catch(function() {
+        return caches.match(request).then(function(cached) {
+            if (cached) return cached;
+            if (request.mode === 'navigate') return caches.match('./index.html');
+            return new Response('Offline', { status: 503 });
+        });
+    });
+}
 
 function cacheFirst(request) {
     return caches.match(request).then(function (cached) {
@@ -86,6 +109,11 @@ self.addEventListener('activate', function (event) {
         }).then(function () {
             return self.clients.claim();
         }).then(function () {
+            // Tell all open tabs to reload so they pick up fresh files
+            return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clients) {
+                clients.forEach(function(client) { client.postMessage({ type: 'SW_UPDATED' }); });
+            });
+        }).then(function () {
             scheduleTodoCheckLoop();
             return runTodoNotificationCheck();
         })
@@ -96,7 +124,11 @@ self.addEventListener('fetch', function (event) {
     if (event.request.method !== 'GET') return;
     var url = new URL(event.request.url);
     if (url.origin !== self.location.origin) return;
-    event.respondWith(cacheFirst(event.request));
+    if (isNetworkFirst(url)) {
+        event.respondWith(networkFirst(event.request));
+    } else {
+        event.respondWith(cacheFirst(event.request));
+    }
 });
 
 self.addEventListener('message', function (event) {

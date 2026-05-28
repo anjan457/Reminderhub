@@ -17,6 +17,7 @@ const FOCUS_ANIMS = ['breathe', 'aurora', 'waves', 'orbit', 'ripple', 'nebula', 
 const FOCUS_ANIM_LABELS = { breathe: 'Breathe', aurora: 'Aurora', waves: 'Waves', orbit: 'Orbit', ripple: 'Ripple', nebula: 'Nebula', float: 'Float', none: 'Off' };
 const FOCUS_ANIM_CLASSES = FOCUS_ANIMS.map(function(a) { return 'focus-anim--' + a; });
 const THEME_TO_FOCUS_ANIM = { default: 'breathe', blue: 'waves', green: 'float', purple: 'nebula' };
+const FOCUS_ANIM_SOUNDS = { breathe: 'breathe', aurora: 'aurora', waves: 'wave', orbit: 'orbit', ripple: 'ripple', nebula: 'nebula', float: 'float', none: null };
 
 const DEFAULT_REMINDER_CATEGORIES = ['Personal', 'Study', 'Work', 'Health', 'Event'];
 const DEFAULT_TODO_CATEGORIES = ['Study', 'Market', 'Work', 'Personal', 'Health'];
@@ -91,6 +92,8 @@ const CATEGORY_PICKERS = [
 let ctxCategoryName = null;
 let ctxPickerKey = null;
 const darkModeToggle = document.getElementById('darkModeToggle');
+const themePickerBtn = document.getElementById('themePickerBtn');
+const themePickerPanel = document.getElementById('themePickerPanel');
 const themeMenuBtn = document.getElementById('themeMenuBtn');
 const themeMenuPanel = document.getElementById('themeMenuPanel');
 const openFocusBtn = document.getElementById('openFocusBtn');
@@ -263,6 +266,11 @@ function applyFocusAnim(id) {
     focusAnimLayer.classList.add('focus-anim--' + picked);
     localStorage.setItem(STORAGE_KEYS.focusAnim, picked);
     updateFocusSwitcher(picked);
+    if (focusFullscreen && !focusFullscreen.hidden) {
+        stopAllAmbient();
+        var snd = FOCUS_ANIM_SOUNDS[picked];
+        if (snd && !focusMuted) startAmbient(snd);
+    }
 }
 
 function updateFocusSwitcher(current) {
@@ -284,11 +292,11 @@ function openFocusFullscreen() {
     if (!focusFullscreen) return;
     closeThemeMenu();
     var current = getSavedFocusAnim();
-    applyFocusAnim(current);
     focusFullscreen.hidden = false;
     document.body.style.overflow = 'hidden';
-    // Feature 12: update session count
+    applyFocusAnim(current);
     updatePomodoroSessionCount();
+    updateFocusMuteBtn();
 }
 
 function closeFocusFullscreen() {
@@ -1040,19 +1048,42 @@ function openThemeMenu() {
     themeMenuBtn.setAttribute('aria-expanded', 'true');
 }
 
+function closeThemePicker() {
+    if (!themePickerPanel || !themePickerBtn) return;
+    themePickerPanel.hidden = true;
+    themePickerBtn.setAttribute('aria-expanded', 'false');
+}
+
+function openThemePicker() {
+    if (!themePickerPanel || !themePickerBtn) return;
+    themePickerPanel.hidden = false;
+    themePickerBtn.setAttribute('aria-expanded', 'true');
+}
+
 themeMenuBtn?.addEventListener('click', function (e) {
     e.stopPropagation();
+    closeThemePicker();
     if (themeMenuPanel && !themeMenuPanel.hidden) closeThemeMenu();
     else openThemeMenu();
+});
+
+themePickerBtn?.addEventListener('click', function (e) {
+    e.stopPropagation();
+    closeThemeMenu();
+    if (themePickerPanel && !themePickerPanel.hidden) closeThemePicker();
+    else openThemePicker();
 });
 
 themeButtons.forEach(function (button) {
     button.addEventListener('click', function () {
         setTheme(button.dataset.theme);
-        closeThemeMenu();
+        closeThemePicker();
     });
 });
-darkModeToggle?.addEventListener('click', toggleDarkMode);
+darkModeToggle?.addEventListener('click', function () {
+    toggleDarkMode();
+    closeThemePicker();
+});
 
 // Feature 1: Quick dark mode toggle button
 quickDarkBtn?.addEventListener('click', function(e) {
@@ -1102,13 +1133,17 @@ document.getElementById('focusSwNext')?.addEventListener('click', function(e) {
 });
 
 document.addEventListener('click', function (e) {
-    if (!e.target.closest('.theme-menu-wrap')) closeThemeMenu();
+    if (!e.target.closest('.top-action-wrap')) {
+        closeThemeMenu();
+        closeThemePicker();
+    }
 });
 document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     if (focusFullscreen && !focusFullscreen.hidden) { closeFocusFullscreen(); return; }
     if (todayPanel && !todayPanel.hidden) { closeTodayPanel(); return; }
     closeThemeMenu();
+    closeThemePicker();
 });
 
 /* ════════════════════════════════════════
@@ -1691,22 +1726,40 @@ function renderSelectedDateTasks() {
     }).join('');
 }
 
+function animateCount(el, target) {
+    if (!el) return;
+    var current = parseInt(el.textContent) || 0;
+    if (current === target) return;
+    var duration = 500, startTime = null;
+    function step(ts) {
+        if (!startTime) startTime = ts;
+        var p = Math.min((ts - startTime) / duration, 1);
+        var eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(current + (target - current) * eased);
+        if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+}
+
 function updateStats() {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-    totalRemindersEl.textContent = String(reminders.length);
-    activeTodosEl.textContent = String(todos.filter(function (todo) { return !todo.completed; }).length);
-    todayEventsEl.textContent = String(
-        dailyTasks.filter(function (task) {
-            const parts = String(task.date).split('-').map(Number);
-            return parts[1] - 1 === currentMonth && parts[0] === currentYear;
-        }).length +
-        todos.filter(function (todo) {
-            const parts = String(todo.date).split('-').map(Number);
-            return parts[1] - 1 === currentMonth && parts[0] === currentYear;
-        }).length
-    );
+    var totalR = reminders.length;
+    var activeTodos = todos.filter(function(t) { return !t.completed; }).length;
+    var monthTasks = dailyTasks.filter(function(task) {
+        const p = String(task.date).split('-').map(Number);
+        return p[1]-1 === currentMonth && p[0] === currentYear;
+    }).length + todos.filter(function(todo) {
+        const p = String(todo.date).split('-').map(Number);
+        return p[1]-1 === currentMonth && p[0] === currentYear;
+    }).length;
+    animateCount(totalRemindersEl, totalR);
+    animateCount(activeTodosEl, activeTodos);
+    animateCount(todayEventsEl, monthTasks);
+
+    var fab = document.getElementById('todayFabBtn');
+    if (fab) fab.classList.toggle('has-tasks', activeTodos > 0);
 }
 
 function renderCalendar() {
@@ -2009,79 +2062,180 @@ function updatePomodoroSessionCount() {
 ════════════════════════════════════════ */
 var ambientCtx = null;
 var ambientNodes = {};
+var ambientMasterGain = null;
+var focusMuted = false;
+var _noiseBuffer = null;
 
 function getAudioContext() {
     if (!ambientCtx) ambientCtx = new (window.AudioContext || window.webkitAudioContext)();
     return ambientCtx;
 }
 
-function createWhiteNoiseBuffer(ctx) {
-    var bufferSize = ctx.sampleRate * 2;
-    var buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    var data = buffer.getChannelData(0);
-    for (var i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
+function getAmbientMaster(ctx) {
+    if (!ambientMasterGain || ambientMasterGain.context !== ctx) {
+        ambientMasterGain = ctx.createGain();
+        ambientMasterGain.gain.value = focusMuted ? 0 : 1;
+        ambientMasterGain.connect(ctx.destination);
     }
-    return buffer;
+    return ambientMasterGain;
+}
+
+function getNoiseBuffer(ctx) {
+    if (!_noiseBuffer || _noiseBuffer.sampleRate !== ctx.sampleRate) {
+        var size = ctx.sampleRate * 10;
+        _noiseBuffer = ctx.createBuffer(1, size, ctx.sampleRate);
+        var d = _noiseBuffer.getChannelData(0);
+        for (var i = 0; i < size; i++) d[i] = Math.random() * 2 - 1;
+    }
+    return _noiseBuffer;
+}
+
+function noiseSrc(ctx, offset) {
+    var s = ctx.createBufferSource();
+    s.buffer = getNoiseBuffer(ctx);
+    s.loop = true;
+    s.loopStart = (offset || 0) % 10;
+    s.loopEnd = 10;
+    return s;
+}
+
+function updateFocusMuteBtn() {
+    var btn = document.getElementById('focusMuteBtn');
+    if (btn) btn.textContent = focusMuted ? '🔇 Unmute' : '🔊 Mute';
 }
 
 function startAmbient(type) {
     stopAmbient(type);
     var ctx = getAudioContext();
-    var gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.5);
-    gainNode.connect(ctx.destination);
+    var master = getAmbientMaster(ctx);
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.connect(master);
 
-    if (type === 'rain') {
-        // Filtered white noise
-        var bufferSource = ctx.createBufferSource();
-        bufferSource.buffer = createWhiteNoiseBuffer(ctx);
-        bufferSource.loop = true;
-        var filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 800;
-        filter.Q.value = 0.8;
-        bufferSource.connect(filter);
-        filter.connect(gainNode);
-        bufferSource.start();
-        ambientNodes[type] = { source: bufferSource, gain: gainNode, extra: [filter] };
-    } else if (type === 'forest') {
-        // Layered oscillators
-        gainNode.gain.setValueAtTime(0.0001, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 1);
-        var oscs = [];
-        var freqs = [220, 320, 440, 550, 660, 880];
-        freqs.forEach(function(freq, i) {
-            var osc = ctx.createOscillator();
-            osc.type = 'sine';
-            osc.frequency.value = freq + (Math.random() * 30 - 15);
-            var oscGain = ctx.createGain();
-            oscGain.gain.value = 0.08 + Math.random() * 0.12;
-            osc.connect(oscGain);
-            oscGain.connect(gainNode);
-            osc.start();
-            // slight LFO modulation
-            var lfo = ctx.createOscillator();
-            lfo.frequency.value = 0.5 + Math.random() * 1.5;
-            var lfoGain = ctx.createGain();
-            lfoGain.gain.value = 5;
-            lfo.connect(lfoGain);
-            lfoGain.connect(osc.frequency);
-            lfo.start();
-            oscs.push(osc, lfo);
+    if (type === 'breathe') {
+        var s = noiseSrc(ctx, 0);
+        var f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 350; f.Q.value = 0.5;
+        var sg = ctx.createGain(); sg.gain.value = 0.5;
+        var lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.05;
+        var lg = ctx.createGain(); lg.gain.value = 0.45;
+        lfo.connect(lg); lg.connect(sg.gain);
+        s.connect(f); f.connect(sg); sg.connect(g);
+        s.start(); lfo.start();
+        g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 2.5);
+        ambientNodes[type] = { source: s, gain: g, extra: [lfo] };
+
+    } else if (type === 'aurora') {
+        g.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 3);
+        var extra = [];
+        [55, 82.4, 110, 164.8, 220].forEach(function(freq, i) {
+            var osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = freq;
+            var og = ctx.createGain(); og.gain.value = 0.055 + i * 0.01;
+            var vib = ctx.createOscillator(); vib.type = 'sine'; vib.frequency.value = 0.03 + i * 0.007;
+            var vg = ctx.createGain(); vg.gain.value = 0.4;
+            vib.connect(vg); vg.connect(osc.frequency);
+            var am = ctx.createOscillator(); am.type = 'sine'; am.frequency.value = 0.02 + i * 0.005;
+            var ag = ctx.createGain(); ag.gain.value = 0.04;
+            am.connect(ag); ag.connect(og.gain);
+            osc.connect(og); og.connect(g);
+            osc.start(); vib.start(); am.start();
+            extra.push(osc, vib, am);
         });
-        ambientNodes[type] = { source: oscs[0], gain: gainNode, extra: oscs };
+        ambientNodes[type] = { source: extra[0], gain: g, extra: extra };
+
+    } else if (type === 'rain' || type === 'ripple') {
+        var heavy = type === 'rain';
+        var s1 = noiseSrc(ctx, 0);
+        var f1a = ctx.createBiquadFilter(); f1a.type = 'lowpass'; f1a.frequency.value = heavy ? 450 : 700; f1a.Q.value = 0.4;
+        var f1b = ctx.createBiquadFilter(); f1b.type = 'lowpass'; f1b.frequency.value = heavy ? 220 : 400; f1b.Q.value = 0.4;
+        var g1 = ctx.createGain(); g1.gain.value = heavy ? 0.65 : 0.3;
+        s1.connect(f1a); f1a.connect(f1b); f1b.connect(g1); g1.connect(g); s1.start();
+
+        var s2 = noiseSrc(ctx, 3.3);
+        var f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.frequency.value = heavy ? 1600 : 2200; f2.Q.value = heavy ? 0.9 : 1.5;
+        var g2 = ctx.createGain(); g2.gain.value = heavy ? 0.28 : 0.45;
+        var lfo2 = ctx.createOscillator(); lfo2.type = 'sine'; lfo2.frequency.value = heavy ? 3.5 : 6;
+        var lg2 = ctx.createGain(); lg2.gain.value = heavy ? 0.13 : 0.3;
+        lfo2.connect(lg2); lg2.connect(g2.gain);
+        s2.connect(f2); f2.connect(g2); g2.connect(g); s2.start(); lfo2.start();
+
+        var s3 = noiseSrc(ctx, 6.6);
+        var f3 = ctx.createBiquadFilter(); f3.type = 'lowpass'; f3.frequency.value = heavy ? 90 : 150; f3.Q.value = 1;
+        var g3 = ctx.createGain(); g3.gain.value = heavy ? 0.35 : 0.15;
+        s3.connect(f3); f3.connect(g3); g3.connect(g); s3.start();
+
+        g.gain.exponentialRampToValueAtTime(heavy ? 0.32 : 0.28, ctx.currentTime + 1.5);
+        ambientNodes[type] = { source: s1, gain: g, extra: [s2, s3, lfo2] };
+
+    } else if (type === 'forest' || type === 'wave') {
+        var w1 = noiseSrc(ctx, 0);
+        var wf1 = ctx.createBiquadFilter(); wf1.type = 'lowpass'; wf1.frequency.value = 650; wf1.Q.value = 0.8;
+        var wg1 = ctx.createGain(); wg1.gain.value = 0.5;
+        var wl1 = ctx.createOscillator(); wl1.type = 'sine'; wl1.frequency.value = 0.1;
+        var wlg1 = ctx.createGain(); wlg1.gain.value = 0.38;
+        wl1.connect(wlg1); wlg1.connect(wg1.gain);
+        w1.connect(wf1); wf1.connect(wg1); wg1.connect(g); w1.start(); wl1.start();
+
+        var w2 = noiseSrc(ctx, 3.3);
+        var wf2 = ctx.createBiquadFilter(); wf2.type = 'bandpass'; wf2.frequency.value = 1100; wf2.Q.value = 1.4;
+        var wg2 = ctx.createGain(); wg2.gain.value = 0.18;
+        var wl2 = ctx.createOscillator(); wl2.type = 'sine'; wl2.frequency.value = 0.15;
+        var wlg2 = ctx.createGain(); wlg2.gain.value = 0.14;
+        wl2.connect(wlg2); wlg2.connect(wg2.gain);
+        w2.connect(wf2); wf2.connect(wg2); wg2.connect(g); w2.start(); wl2.start();
+
+        var w3 = noiseSrc(ctx, 6.6);
+        var wf3 = ctx.createBiquadFilter(); wf3.type = 'lowpass'; wf3.frequency.value = 95; wf3.Q.value = 0.5;
+        var wg3 = ctx.createGain(); wg3.gain.value = 0.22;
+        w3.connect(wf3); wf3.connect(wg3); wg3.connect(g); w3.start();
+
+        g.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 2);
+        ambientNodes[type] = { source: w1, gain: g, extra: [w2, w3, wl1, wl2] };
+
+    } else if (type === 'orbit') {
+        var o1 = noiseSrc(ctx, 0);
+        var of1 = ctx.createBiquadFilter(); of1.type = 'lowpass'; of1.frequency.value = 120; of1.Q.value = 0.7;
+        var og1 = ctx.createGain(); og1.gain.value = 0.5;
+        o1.connect(of1); of1.connect(og1); og1.connect(g); o1.start();
+
+        var drone = ctx.createOscillator(); drone.type = 'sine'; drone.frequency.value = 40;
+        var dg = ctx.createGain(); dg.gain.value = 0.15;
+        var am = ctx.createOscillator(); am.type = 'sine'; am.frequency.value = 0.04;
+        var ag = ctx.createGain(); ag.gain.value = 0.12;
+        am.connect(ag); ag.connect(dg.gain);
+        drone.connect(dg); dg.connect(g); drone.start(); am.start();
+
+        g.gain.exponentialRampToValueAtTime(0.28, ctx.currentTime + 2);
+        ambientNodes[type] = { source: o1, gain: g, extra: [drone, am] };
+
+    } else if (type === 'nebula') {
+        var n1 = noiseSrc(ctx, 0);
+        var nf1 = ctx.createBiquadFilter(); nf1.type = 'lowpass'; nf1.frequency.value = 180; nf1.Q.value = 0.6;
+        var ng1 = ctx.createGain(); ng1.gain.value = 0.6;
+        var nl = ctx.createOscillator(); nl.type = 'sine'; nl.frequency.value = 0.03;
+        var nlg = ctx.createGain(); nlg.gain.value = 0.4;
+        nl.connect(nlg); nlg.connect(ng1.gain);
+        n1.connect(nf1); nf1.connect(ng1); ng1.connect(g); n1.start(); nl.start();
+
+        g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 3);
+        ambientNodes[type] = { source: n1, gain: g, extra: [nl] };
+
+    } else if (type === 'float') {
+        var fl1 = noiseSrc(ctx, 0);
+        var ff1 = ctx.createBiquadFilter(); ff1.type = 'bandpass'; ff1.frequency.value = 900; ff1.Q.value = 0.3;
+        var fg1 = ctx.createGain(); fg1.gain.value = 0.5;
+        var fll = ctx.createOscillator(); fll.type = 'sine'; fll.frequency.value = 0.08;
+        var flg = ctx.createGain(); flg.gain.value = 200;
+        fll.connect(flg); flg.connect(ff1.frequency);
+        fl1.connect(ff1); ff1.connect(fg1); fg1.connect(g); fl1.start(); fll.start();
+
+        g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 2);
+        ambientNodes[type] = { source: fl1, gain: g, extra: [fll] };
+
     } else if (type === 'noise') {
-        // Pure white noise, medium gain
-        var bufSrc = ctx.createBufferSource();
-        bufSrc.buffer = createWhiteNoiseBuffer(ctx);
-        bufSrc.loop = true;
-        gainNode.gain.setValueAtTime(0.0001, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.5);
-        bufSrc.connect(gainNode);
-        bufSrc.start();
-        ambientNodes[type] = { source: bufSrc, gain: gainNode };
+        var ns = noiseSrc(ctx, 0);
+        g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.5);
+        ns.connect(g); ns.start();
+        ambientNodes[type] = { source: ns, gain: g };
     }
 }
 
@@ -2103,26 +2257,20 @@ function stopAmbient(type) {
 }
 
 function stopAllAmbient() {
-    ['rain', 'forest', 'noise'].forEach(stopAmbient);
-    document.querySelectorAll('.ambient-btn').forEach(function(b) { b.classList.remove('active'); });
+    Object.keys(ambientNodes).forEach(stopAmbient);
 }
 
 function initAmbientButtons() {
-    var map = { ambientRain: 'rain', ambientForest: 'forest', ambientNoise: 'noise' };
-    Object.keys(map).forEach(function(id) {
-        var btn = document.getElementById(id);
-        if (!btn) return;
-        btn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            var type = map[id];
-            if (ambientNodes[type]) {
-                stopAmbient(type);
-                btn.classList.remove('active');
-            } else {
-                startAmbient(type);
-                btn.classList.add('active');
-            }
-        });
+    var btn = document.getElementById('focusMuteBtn');
+    if (!btn) return;
+    btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        focusMuted = !focusMuted;
+        if (ambientMasterGain) {
+            var ctx = getAudioContext();
+            ambientMasterGain.gain.setTargetAtTime(focusMuted ? 0 : 1, ctx.currentTime, 0.15);
+        }
+        updateFocusMuteBtn();
     });
 }
 
@@ -2325,17 +2473,9 @@ async function triggerInstallFlow() {
 function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.register('./sw.js', { scope: './' }).then(function (reg) {
-        console.log('SW registered:', reg.scope);
-
-        function offerUpdate(worker) {
-            if (!worker) return;
-            var ok = window.confirm('New version available. Update now?');
-            if (!ok) return;
-            worker.postMessage({ type: 'SKIP_WAITING' });
-        }
-
+        // If a new SW is already waiting, activate it silently
         if (reg.waiting) {
-            offerUpdate(reg.waiting);
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
         }
 
         reg.addEventListener('updatefound', function () {
@@ -2343,11 +2483,13 @@ function registerServiceWorker() {
             if (!installing) return;
             installing.addEventListener('statechange', function () {
                 if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-                    offerUpdate(reg.waiting);
+                    // New version ready — activate it silently
+                    if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
                 }
             });
         });
 
+        // When SW takes control (after SKIP_WAITING), reload to get fresh files
         var refreshing = false;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
             if (refreshing) return;
@@ -2363,8 +2505,16 @@ function registerServiceWorker() {
     });
 
     navigator.serviceWorker.addEventListener('message', function (event) {
-        if (event.data && event.data.type === 'TODOS_NOTIFIED') {
+        if (!event.data) return;
+        if (event.data.type === 'TODOS_NOTIFIED') {
             mergeTodosFromServiceWorker(event.data.todos);
+        }
+        if (event.data.type === 'SW_UPDATED') {
+            // SW activated and claimed this client — reload for fresh files
+            if (!document._swReloading) {
+                document._swReloading = true;
+                window.location.reload();
+            }
         }
     });
 }
@@ -2737,10 +2887,267 @@ function closeWordGame() {
     setTimeout(function() { overlay.hidden = true; }, 300);
 }
 
+function openGamePicker() {
+    closeThemeMenu();
+    var el = document.getElementById('gamePickerOverlay');
+    if (!el) return;
+    el.hidden = false;
+    requestAnimationFrame(function() { el.classList.add('open'); });
+}
+
+function closeGamePicker() {
+    var el = document.getElementById('gamePickerOverlay');
+    if (!el) return;
+    el.classList.remove('open');
+    setTimeout(function() { el.hidden = true; }, 280);
+}
+
 function initWordGame() {
-    document.getElementById('openWordGameBtn')?.addEventListener('click', openWordGame);
+    document.getElementById('openGamesBtn')?.addEventListener('click', openGamePicker);
+    document.getElementById('gamePickerClose')?.addEventListener('click', closeGamePicker);
+    document.getElementById('pickWordSearch')?.addEventListener('click', function() {
+        closeGamePicker();
+        setTimeout(openWordGame, 280);
+    });
+    document.getElementById('pickMathGame')?.addEventListener('click', function() {
+        closeGamePicker();
+        setTimeout(openMathGame, 280);
+    });
     document.getElementById('wordGameClose')?.addEventListener('click', closeWordGame);
     document.getElementById('wordGameNewBtn')?.addEventListener('click', wsNewGame);
+}
+
+/* ════════════════════════════════════════
+   Math Game
+════════════════════════════════════════ */
+var mathState = null;
+
+function mathGenQuestion() {
+    var ops = ['+', '-', '×', '÷'];
+    var op = ops[Math.floor(Math.random() * ops.length)];
+    var a, b, answer;
+    if (op === '+') { a = Math.floor(Math.random()*50)+1; b = Math.floor(Math.random()*50)+1; answer = a+b; }
+    else if (op === '-') { a = Math.floor(Math.random()*50)+20; b = Math.floor(Math.random()*a)+1; if(b>a)b=a; answer=a-b; }
+    else if (op === '×') { a = Math.floor(Math.random()*12)+2; b = Math.floor(Math.random()*12)+2; answer=a*b; }
+    else { b = Math.floor(Math.random()*11)+2; answer = Math.floor(Math.random()*11)+2; a = b*answer; }
+    var choices = [answer];
+    var spread = Math.max(4, Math.floor(answer * 0.3));
+    while (choices.length < 4) {
+        var wrong = answer + Math.floor(Math.random()*spread*2) - spread;
+        if (wrong !== answer && wrong > 0 && choices.indexOf(wrong) < 0) choices.push(wrong);
+    }
+    choices.sort(function() { return Math.random()-0.5; });
+    return { q: a + ' ' + op + ' ' + b + ' = ?', answer: answer, choices: choices };
+}
+
+function mathRenderQuestion() {
+    var st = mathState;
+    var q = st.questions[st.current];
+    document.getElementById('mathQuestion').textContent = q.q;
+    var qnum = st.current + 1;
+    if (st.mode === 'vs') {
+        document.getElementById('mathVsQNum').textContent = qnum;
+    } else {
+        document.getElementById('mathQNum').textContent = qnum;
+    }
+    document.getElementById('mathProgressFill').style.width = ((st.current / 10) * 100) + '%';
+    document.getElementById('mathFeedback').textContent = '';
+    var choicesEl = document.getElementById('mathChoices');
+    choicesEl.innerHTML = '';
+    q.choices.forEach(function(c) {
+        var btn = document.createElement('button');
+        btn.className = 'math-choice'; btn.type = 'button'; btn.textContent = c;
+        btn.addEventListener('click', function() { mathHumanAnswer(c, q.answer, btn); });
+        choicesEl.appendChild(btn);
+    });
+    if (st.mode === 'vs') mathAiThink(q.answer);
+}
+
+function mathDisableChoices() {
+    document.querySelectorAll('.math-choice').forEach(function(b) { b.disabled = true; });
+}
+
+function mathHighlightCorrect(correct) {
+    document.querySelectorAll('.math-choice').forEach(function(b) {
+        if (parseInt(b.textContent) === correct) b.classList.add('correct');
+    });
+}
+
+function mathHumanAnswer(chosen, correct, btn) {
+    var st = mathState;
+    if (st.answered) return;
+    st.answered = true;
+    clearTimeout(st.aiTimeout);
+    mathDisableChoices();
+    mathHighlightCorrect(correct);
+    var fb = document.getElementById('mathFeedback');
+    if (chosen === correct) {
+        st.humanScore++;
+        btn.classList.add('correct');
+        fb.textContent = '✓ Correct!'; fb.style.color = '#4ade80';
+    } else {
+        btn.classList.add('wrong');
+        fb.textContent = '✗ ' + correct; fb.style.color = '#ef4444';
+    }
+    mathUpdateScores();
+    mathAiBarStop();
+    mathNextOrEnd();
+}
+
+function mathAiThink(correct) {
+    var st = mathState;
+    var thinkMs = 700 + Math.random() * 1500; // 0.7s–2.2s
+    mathAiBarStart(thinkMs);
+    st.aiTimeout = setTimeout(function() {
+        if (st.answered) return;
+        st.answered = true;
+        mathDisableChoices();
+        mathHighlightCorrect(correct);
+        var aiCorrect = Math.random() < 0.88;
+        var fb = document.getElementById('mathFeedback');
+        if (aiCorrect) {
+            st.aiScore++;
+            fb.textContent = '🤖 AI was faster!'; fb.style.color = '#fb923c';
+        } else {
+            fb.textContent = '🤖 AI got it wrong!'; fb.style.color = '#4ade80';
+        }
+        mathUpdateScores();
+        mathAiBarStop();
+        mathNextOrEnd();
+    }, thinkMs);
+}
+
+function mathAiBarStart(duration) {
+    var wrap = document.getElementById('mathAiBarWrap');
+    var fill = document.getElementById('mathAiBarFill');
+    if (!wrap || !fill) return;
+    wrap.hidden = false;
+    fill.style.transition = 'none'; fill.style.width = '0%';
+    requestAnimationFrame(function() {
+        fill.style.transition = 'width ' + (duration/1000).toFixed(2) + 's linear';
+        fill.style.width = '100%';
+    });
+}
+
+function mathAiBarStop() {
+    var wrap = document.getElementById('mathAiBarWrap');
+    var fill = document.getElementById('mathAiBarFill');
+    if (wrap) wrap.hidden = true;
+    if (fill) { fill.style.transition = 'none'; fill.style.width = '0%'; }
+}
+
+function mathUpdateScores() {
+    var st = mathState;
+    if (st.mode === 'vs') {
+        document.getElementById('mathHumanScore').textContent = st.humanScore;
+        document.getElementById('mathAiScore').textContent = st.aiScore;
+    } else {
+        document.getElementById('mathScore').textContent = st.humanScore;
+    }
+}
+
+function mathNextOrEnd() {
+    var st = mathState;
+    setTimeout(function() {
+        st.current++;
+        if (st.current < 10) {
+            st.answered = false;
+            mathRenderQuestion();
+        } else {
+            mathShowResult();
+        }
+    }, 1100);
+}
+
+function mathStartTimer() {
+    var st = mathState;
+    clearInterval(st.timerInterval);
+    st.timerInterval = setInterval(function() {
+        var elapsed = Math.floor((Date.now() - st.gameStart) / 1000);
+        var m = Math.floor(elapsed/60), s = elapsed%60;
+        var el = document.getElementById('mathTimer');
+        if (el) el.textContent = m + ':' + (s<10?'0':'') + s;
+    }, 500);
+}
+
+function mathShowResult() {
+    var st = mathState;
+    clearInterval(st.timerInterval);
+    clearTimeout(st.aiTimeout);
+    var elapsed = Math.floor((Date.now() - st.gameStart) / 1000);
+    document.getElementById('mathGameArea').hidden = true;
+    var result = document.getElementById('mathResult');
+    result.hidden = false;
+    var m = Math.floor(elapsed/60), s = elapsed%60;
+    var vsEl = document.getElementById('mathResultVs');
+    if (st.mode === 'vs') {
+        var h = st.humanScore, a = st.aiScore;
+        var win = h > a ? 'You Win! 🏆' : h === a ? 'Draw! 🤝' : 'AI Wins! 🤖';
+        var emoji = h > a ? '🏆' : h === a ? '🤝' : '😅';
+        document.getElementById('mathResultEmoji').textContent = emoji;
+        document.getElementById('mathResultScore').textContent = win;
+        vsEl.hidden = false;
+        vsEl.innerHTML = '<span class="math-vs-result-row"><b>You</b> ' + h + ' — ' + a + ' <b>🤖 AI</b></span><span class="math-vs-time">' + m + ':' + (s<10?'0':'') + s + '</span>';
+    } else {
+        var score = st.humanScore;
+        var emoji2 = score >= 9 ? '🏆' : score >= 7 ? '🎉' : score >= 5 ? '👍' : '💪';
+        document.getElementById('mathResultEmoji').textContent = emoji2;
+        document.getElementById('mathResultScore').textContent = score + '/10 correct  •  ' + m + ':' + (s<10?'0':'') + s;
+        vsEl.hidden = true;
+    }
+    document.getElementById('mathProgressFill').style.width = '100%';
+}
+
+function mathShowModeSelect() {
+    document.getElementById('mathModeSelect').hidden = false;
+    document.getElementById('mathGameArea').hidden = true;
+    document.getElementById('mathResult').hidden = true;
+    document.getElementById('mathTimer').textContent = '0:00';
+    document.getElementById('mathGameTitle').textContent = 'Math Challenge';
+}
+
+function openMathGame() {
+    var el = document.getElementById('mathGameOverlay');
+    if (!el) return;
+    el.hidden = false;
+    requestAnimationFrame(function() { el.classList.add('open'); });
+    mathShowModeSelect();
+}
+
+function closeMathGame() {
+    var el = document.getElementById('mathGameOverlay');
+    if (!el) return;
+    if (mathState) { clearInterval(mathState.timerInterval); clearTimeout(mathState.aiTimeout); }
+    el.classList.remove('open');
+    setTimeout(function() { el.hidden = true; }, 280);
+}
+
+function mathStartNewGame(mode) {
+    if (mathState) { clearInterval(mathState.timerInterval); clearTimeout(mathState.aiTimeout); }
+    var questions = [];
+    for (var i=0; i<10; i++) questions.push(mathGenQuestion());
+    mathState = { questions: questions, current: 0, humanScore: 0, aiScore: 0, answered: false, gameStart: Date.now(), timerInterval: null, aiTimeout: null, mode: mode };
+    document.getElementById('mathModeSelect').hidden = true;
+    document.getElementById('mathGameArea').hidden = false;
+    document.getElementById('mathResult').hidden = true;
+    var isVs = mode === 'vs';
+    document.getElementById('mathScoreRow').hidden = isVs;
+    document.getElementById('mathVsScoreboard').hidden = !isVs;
+    document.getElementById('mathGameTitle').textContent = isVs ? 'You vs 🤖' : 'Math Challenge';
+    mathUpdateScores();
+    mathRenderQuestion();
+    mathStartTimer();
+}
+
+function initMathGame() {
+    document.getElementById('mathGameClose')?.addEventListener('click', closeMathGame);
+    document.getElementById('mathModeSolo')?.addEventListener('click', function() { mathStartNewGame('solo'); });
+    document.getElementById('mathModeVsAI')?.addEventListener('click', function() { mathStartNewGame('vs'); });
+    document.getElementById('mathPlayAgain')?.addEventListener('click', mathShowModeSelect);
+    document.getElementById('mathBackBtn')?.addEventListener('click', function() {
+        closeMathGame();
+        setTimeout(openGamePicker, 280);
+    });
 }
 
 /* ════════════════════════════════════════
@@ -3049,6 +3456,7 @@ initInstallPrompt();
 initOfflineStatus();
 initTodoAlertBanner();
 initWordGame();
+initMathGame();
 initNotes();
 pushStateToOfflineStore();
 document.addEventListener('visibilitychange', function () {

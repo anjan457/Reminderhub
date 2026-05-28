@@ -15,27 +15,50 @@
 </head>
 <body>
     <div class="shell">
-        <div class="theme-menu-wrap">
+        <div class="top-action-row">
             <!-- Quick dark mode toggle button (Feature 1) -->
             <button class="quick-dark-btn" id="quickDarkBtn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
 
-            <button class="theme-menu-btn" id="themeMenuBtn" type="button" aria-label="Open color menu" aria-expanded="false" aria-haspopup="true">
-                <span class="theme-menu-bar"></span>
-                <span class="theme-menu-bar"></span>
-                <span class="theme-menu-bar"></span>
-            </button>
-            <div class="theme-menu-panel" id="themeMenuPanel" hidden>
+            <div class="theme-menu-wrap top-action-wrap">
+                <button class="theme-menu-btn theme-picker-btn" id="themePickerBtn" type="button" aria-label="Open theme menu" aria-expanded="false" aria-haspopup="true">🎨</button>
+                <div class="theme-menu-panel" id="themePickerPanel" hidden>
                 <p class="theme-menu-label">Colors</p>
                 <div class="theme-menu-grid">
-                    <button class="btn btn-ghost btn-theme" data-theme="default" type="button">Default</button>
-                    <button class="btn btn-ghost btn-theme" data-theme="blue" type="button">Blue</button>
-                    <button class="btn btn-ghost btn-theme" data-theme="green" type="button">Green</button>
-                    <button class="btn btn-ghost btn-theme" data-theme="purple" type="button">Purple</button>
+                    <button class="btn btn-ghost btn-theme theme-choice" data-theme="default" type="button">
+                        <span class="theme-dot theme-dot--default" aria-hidden="true"></span>
+                        <span>Default</span>
+                    </button>
+                    <button class="btn btn-ghost btn-theme theme-choice" data-theme="blue" type="button">
+                        <span class="theme-dot theme-dot--blue" aria-hidden="true"></span>
+                        <span>Blue</span>
+                    </button>
+                    <button class="btn btn-ghost btn-theme theme-choice" data-theme="green" type="button">
+                        <span class="theme-dot theme-dot--green" aria-hidden="true"></span>
+                        <span>Green</span>
+                    </button>
+                    <button class="btn btn-ghost btn-theme theme-choice" data-theme="purple" type="button">
+                        <span class="theme-dot theme-dot--purple" aria-hidden="true"></span>
+                        <span>Purple</span>
+                    </button>
                 </div>
-                <button class="btn btn-primary theme-menu-dark" id="darkModeToggle" type="button">🌙 Dark</button>
+                <button class="btn btn-primary theme-menu-dark" id="darkModeToggle" type="button">
+                    <span class="theme-dot theme-dot--dark" aria-hidden="true"></span>
+                    <span>Dark mode</span>
+                </button>
+                </div>
+            </div>
+
+            <div class="theme-menu-wrap top-action-wrap">
+                <button class="theme-menu-btn" id="themeMenuBtn" type="button" aria-label="Open app menu" aria-expanded="false" aria-haspopup="true">
+                    <span class="theme-menu-bar"></span>
+                    <span class="theme-menu-bar"></span>
+                    <span class="theme-menu-bar"></span>
+                </button>
+                <div class="theme-menu-panel" id="themeMenuPanel" hidden>
                 <button class="btn btn-ghost theme-menu-focus" id="openFocusBtn" type="button">✦ Focus mode</button>
                 <button class="btn btn-ghost theme-menu-install" id="menuInstallBtn" type="button">📲 Install app</button>
-                <button class="btn btn-ghost theme-menu-game" id="openWordGameBtn" type="button">🔍 Word Search</button>
+                <button class="btn btn-ghost theme-menu-game" id="openGamesBtn" type="button">🎮 Games</button>
+                </div>
             </div>
         </div>
 
@@ -95,13 +118,11 @@
                     <div class="panel-header">
                         <div class="panel-title">
                             <h2>Upcoming Reminders</h2>
-                            <p>Pin reminders with order 1, 2, 3... Pinned ones stay on top.</p>
                         </div>
-                        <div style="display:flex;gap:8px;align-items:center;">
+                        <div class="reminder-header-actions">
                             <button class="btn btn-ghost reminder-digest-btn" id="reminderDigestBtn" type="button" title="Daily 7 AM email for upcoming reminders">🔔 7 AM</button>
-                            <!-- Show completed toggle (Feature 6) -->
                             <button class="btn btn-ghost show-completed-btn" id="showCompletedBtn" type="button" title="Show completed reminders">Show Completed</button>
-                            <button class="btn btn-primary" id="openModalBtn" type="button">See All</button>
+                            <button class="btn btn-primary reminder-see-all-btn" id="openModalBtn" type="button">See All</button>
                         </div>
                     </div>
                     <div id="homeReminderList" class="reminder-grid"></div>
@@ -348,12 +369,8 @@
             <div class="pomodoro-sessions" id="pomodoroSessions">Sessions today: <span id="pomodoroSessionCount">0</span></div>
         </div>
 
-        <!-- Ambient Sounds (Feature 11) -->
-        <div class="ambient-wrap" id="ambientWrap">
-            <button class="ambient-btn" id="ambientRain" type="button" title="Rain">🌧 Rain</button>
-            <button class="ambient-btn" id="ambientForest" type="button" title="Forest">🌿 Forest</button>
-            <button class="ambient-btn" id="ambientNoise" type="button" title="White Noise">〰 Noise</button>
-        </div>
+        <!-- Ambient Mute -->
+        <button type="button" id="focusMuteBtn" class="focus-mute-btn">🔊 Mute</button>
 
         <div class="focus-switcher" id="focusSwitcher" aria-label="Animation switcher">
             <button class="focus-sw-arr" id="focusSwPrev" aria-label="Previous animation">‹</button>
@@ -439,6 +456,99 @@
             <div class="word-game-message" id="wordGameMessage"></div>
             <div class="ws-word-list" id="wsWordList"></div>
             <button class="word-game-new-btn" id="wordGameNewBtn" type="button" hidden>New Game</button>
+        </div>
+    </div>
+
+    <!-- Game Picker -->
+    <div id="gamePickerOverlay" class="game-picker-overlay" hidden>
+        <div class="game-picker-inner">
+            <h2 class="game-picker-title">Pick a game</h2>
+            <p class="game-picker-sub">Choose your challenge</p>
+            <div class="game-picker-cards">
+                <button class="game-card" id="pickMathGame" type="button">
+                    <span class="game-card-badge">MATH</span>
+                    <span class="game-card-icon">➕➖<br>✖️➗</span>
+                </button>
+                <button class="game-card" id="pickWordSearch" type="button">
+                    <span class="game-card-badge">WORDS</span>
+                    <span class="game-card-icon">🔍</span>
+                </button>
+            </div>
+            <button class="game-picker-close" id="gamePickerClose" type="button" aria-label="Close">✕</button>
+        </div>
+    </div>
+
+    <!-- Math Game -->
+    <div id="mathGameOverlay" class="math-game-overlay" hidden>
+        <div class="math-game-inner">
+            <div class="math-game-topbar">
+                <span class="math-game-title" id="mathGameTitle">Math Challenge</span>
+                <div class="math-game-topbar-right">
+                    <span class="math-timer" id="mathTimer">0:00</span>
+                    <button class="math-game-close" id="mathGameClose" type="button" aria-label="Close">✕</button>
+                </div>
+            </div>
+
+            <!-- Mode select screen -->
+            <div id="mathModeSelect" class="math-mode-select">
+                <div class="math-mode-icon">🔢</div>
+                <h3 class="math-mode-heading">Math Challenge</h3>
+                <p class="math-mode-sub">Choose your mode</p>
+                <div class="math-mode-cards">
+                    <button class="math-mode-card" id="mathModeSolo" type="button">
+                        <span class="math-mode-card-icon">🧠</span>
+                        <span class="math-mode-card-label">Solo</span>
+                        <span class="math-mode-card-desc">Beat your best</span>
+                    </button>
+                    <button class="math-mode-card math-mode-card--ai" id="mathModeVsAI" type="button">
+                        <span class="math-mode-card-icon">🤖</span>
+                        <span class="math-mode-card-label">vs AI</span>
+                        <span class="math-mode-card-desc">Race the bot</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Game area -->
+            <div id="mathGameArea" hidden>
+                <div class="math-progress-bar"><div class="math-progress-fill" id="mathProgressFill"></div></div>
+                <div class="math-score-row" id="mathScoreRow">
+                    <span class="math-score-label">Score</span>
+                    <span class="math-score-val" id="mathScore">0</span>
+                    <span class="math-score-label">Q</span>
+                    <span class="math-score-val" id="mathQNum">1</span><span class="math-score-label">/10</span>
+                </div>
+                <!-- vs AI scoreboard (hidden in solo) -->
+                <div class="math-vs-scoreboard" id="mathVsScoreboard" hidden>
+                    <div class="math-vs-side math-vs-human">
+                        <span class="math-vs-label">You</span>
+                        <span class="math-vs-score" id="mathHumanScore">0</span>
+                    </div>
+                    <div class="math-vs-sep">—</div>
+                    <div class="math-vs-side math-vs-ai">
+                        <span class="math-vs-label">🤖 AI</span>
+                        <span class="math-vs-score" id="mathAiScore">0</span>
+                    </div>
+                    <span class="math-vs-qnum"><span id="mathVsQNum">1</span>/10</span>
+                </div>
+                <!-- AI thinking bar -->
+                <div class="math-ai-bar-wrap" id="mathAiBarWrap" hidden>
+                    <span class="math-ai-bar-label">🤖 thinking…</span>
+                    <div class="math-ai-bar"><div class="math-ai-bar-fill" id="mathAiBarFill"></div></div>
+                </div>
+                <div class="math-question-wrap">
+                    <div class="math-question" id="mathQuestion">—</div>
+                    <div class="math-choices" id="mathChoices"></div>
+                    <div class="math-feedback" id="mathFeedback"></div>
+                </div>
+            </div>
+
+            <div class="math-result" id="mathResult" hidden>
+                <div class="math-result-emoji" id="mathResultEmoji">🎉</div>
+                <div class="math-result-score" id="mathResultScore"></div>
+                <div class="math-result-vs" id="mathResultVs" hidden></div>
+                <button class="math-play-again" id="mathPlayAgain" type="button">Play Again</button>
+                <button class="math-back-btn" id="mathBackBtn" type="button">← Games</button>
+            </div>
         </div>
     </div>
 
