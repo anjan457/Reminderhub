@@ -226,6 +226,12 @@
                                     <p class="cat-picker-foot">Right-click empty area to Add · Right-click category to Rename/Delete</p>
                                 </div>
                             </div>
+                            <select id="todoPriorityInput">
+                                <option value="">— Priority</option>
+                                <option value="High">🔥 High</option>
+                                <option value="Medium">⚡ Medium</option>
+                                <option value="Low">🌿 Low</option>
+                            </select>
                             <select id="todoNotifyInput">
                                 <option value="5">5 min before</option>
                                 <option value="7">7 min before</option>
@@ -249,7 +255,6 @@
                     <div class="todo-filter-chips" id="todoFilterChips" hidden>
                         <button class="filter-chip active" data-filter="all" type="button">All</button>
                         <button class="filter-chip" data-filter="active" type="button">Active</button>
-                        <button class="filter-chip" data-filter="completed" type="button">Trash</button>
                         <button class="filter-chip" data-filter="high" type="button">🔥 High</button>
                         <button class="filter-chip" data-filter="medium" type="button">⚡ Medium</button>
                         <button class="filter-chip" data-filter="low" type="button">🌿 Low</button>
@@ -266,6 +271,22 @@
         🗑
         <span class="todo-trash-fab-badge" id="todoTrashFabBadge" hidden>0</span>
     </button>
+
+    <!-- Trash Panel -->
+    <div class="trash-backdrop" id="trashBackdrop" hidden></div>
+    <div class="trash-panel" id="trashPanel" hidden>
+        <div class="trash-panel-header">
+            <div>
+                <div class="trash-panel-title">🗑 Completed</div>
+                <div class="trash-panel-sub" id="trashPanelSub">0 tasks</div>
+            </div>
+            <div class="trash-panel-actions">
+                <button class="trash-clear-btn" id="trashClearAllBtn" type="button">Clear all</button>
+                <button class="trash-close-btn" id="trashPanelClose" type="button">✕</button>
+            </div>
+        </div>
+        <div class="trash-panel-body" id="trashPanelBody"></div>
+    </div>
 
     <!-- Today FAB -->
     <button class="today-fab" id="todayFabBtn" type="button" aria-label="Today's tasks">

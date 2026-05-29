@@ -1199,9 +1199,9 @@ function filterTodosByChip(todoArr) {
         case 'all': return todoArr.filter(function(t) { return !t.completed; });
         case 'active': return todoArr.filter(function(t) { return !t.completed; });
         case 'completed': return todoArr.filter(function(t) { return t.completed; });
-        case 'high': return todoArr.filter(function(t) { return t.priority === 'High'; });
-        case 'medium': return todoArr.filter(function(t) { return t.priority === 'Medium'; });
-        case 'low': return todoArr.filter(function(t) { return t.priority === 'Low'; });
+        case 'high': return todoArr.filter(function(t) { return !t.completed && t.priority === 'High'; });
+        case 'medium': return todoArr.filter(function(t) { return !t.completed && t.priority === 'Medium'; });
+        case 'low': return todoArr.filter(function(t) { return !t.completed && t.priority === 'Low'; });
         default: return todoArr.filter(function(t) { return !t.completed; });
     }
 }
@@ -1270,7 +1270,7 @@ async function addTodo() {
             category: category,
             notifyBefore: todoNotifyInput.value,
             date: todoDateInput && todoDateInput.value ? todoDateInput.value : getTodayISO(),
-            priority: 'Medium',
+            priority: document.getElementById('todoPriorityInput')?.value || 'Medium',
             note: todoNoteInput.value.trim()
         });
         todos.unshift(todo);
@@ -1282,6 +1282,8 @@ async function addTodo() {
         setPickerValue(getPickerByKey('todo'), 'Study');
         todoNotifyInput.value = '5';
         todoNoteInput.value = '';
+        var priInput = document.getElementById('todoPriorityInput');
+        if (priInput) priInput.value = '';
         var noteToggle = document.getElementById('todoNoteToggle');
         if (noteToggle && !todoNoteInput.hidden) {
             todoNoteInput.hidden = true;
@@ -1330,6 +1332,63 @@ function deleteTodo(id) {
     renderCalendar();
     renderSelectedDateTasks();
     updateStats();
+}
+
+function flyIntoTrash(wrapper, onComplete) {
+    var fab = document.getElementById('todoTrashFabBtn');
+    if (!fab) { onComplete(); return; }
+
+    var wRect = wrapper.getBoundingClientRect();
+    var fRect = fab.getBoundingClientRect();
+
+    var tx = (fRect.left + fRect.width  / 2) - (wRect.left + wRect.width  / 2);
+    var ty = (fRect.top  + fRect.height / 2) - (wRect.top  + wRect.height / 2);
+
+    // Fixed ghost — lives outside any overflow:hidden container
+    var ghost = document.createElement('div');
+    ghost.style.cssText =
+        'position:fixed;top:' + wRect.top + 'px;left:' + wRect.left + 'px;' +
+        'width:' + wRect.width + 'px;height:' + Math.min(wRect.height, 60) + 'px;' +
+        'background:#e8f5e9;border:1.5px solid #a5d6a7;border-radius:12px;' +
+        'box-shadow:0 4px 12px rgba(0,0,0,0.15);pointer-events:none;z-index:99999;' +
+        'display:flex;align-items:center;padding:0 14px;' +
+        'font-size:0.82rem;font-weight:600;color:#2e7d32;overflow:hidden;';
+    var t = wrapper.querySelector('.todo-text');
+    ghost.textContent = t ? t.textContent.slice(0, 40) : '';
+    document.body.appendChild(ghost);
+
+    // Collapse the row right away
+    wrapper.style.transition = 'max-height 0.22s ease 0.1s, opacity 0.15s, margin 0.22s ease 0.1s';
+    wrapper.style.overflow   = 'hidden';
+    wrapper.style.opacity    = '0';
+    wrapper.style.maxHeight  = '0';
+    wrapper.style.marginBottom = '0';
+
+    // Arc: mid-point goes UP then curves to FAB
+    var midX = tx * 0.45;
+    var midY = -Math.abs(tx) * 0.45 - 70;
+
+    var anim = ghost.animate([
+        { transform: 'translate(0,0) scale(1) rotate(0deg)',                                           opacity: 1 },
+        { transform: 'translate('+midX+'px,'+midY+'px) scale(0.65) rotate(160deg)',                    opacity: 1, offset: 0.45 },
+        { transform: 'translate('+tx+'px,'+ty+'px) scale(0.04) rotate(380deg)',                        opacity: 0 }
+    ], { duration: 560, easing: 'cubic-bezier(0.3,0,0.6,1)', fill: 'forwards' });
+
+    anim.onfinish = function() {
+        ghost.remove();
+        fab.classList.add('trash-fab-gulp');
+        setTimeout(function() { fab.classList.remove('trash-fab-gulp'); }, 450);
+        onComplete();
+    };
+}
+
+function animateTodoDelete(event, id) {
+    var btn = event.currentTarget || event.target;
+    var wrapper = btn.closest ? btn.closest('.swipe-wrapper') : null;
+    if (!wrapper) { deleteTodo(id); return; }
+    if (wrapper.dataset.deleting) return;
+    wrapper.dataset.deleting = '1';
+    flyIntoTrash(wrapper, function() { deleteTodo(id); });
 }
 
 function toggleDailyTask(id) {
@@ -1583,6 +1642,10 @@ function renderTodos() {
     const query = todoSearchInput.value.trim();
     var filtered = todos.filter(function (todo) { return matchesTodoSearch(todo, query); });
     filtered = filterTodosByChip(filtered);
+    // Hard guard: completed tasks only appear in Trash/Completed view.
+    if (activeTodoFilter !== 'completed') {
+        filtered = filtered.filter(function (todo) { return !todo.completed; });
+    }
 
     // Show/hide filter chips row
     if (todoFilterChips) {
@@ -1636,7 +1699,7 @@ function renderTodos() {
             subtaskSection +
             '</div>' +
             '</div>' +
-            '<button class="btn btn-danger" type="button" onclick="deleteTodo(' + todo.id + ')">Delete</button>' +
+            '<button class="todo-trash-btn" type="button" onclick="animateTodoDelete(event,' + todo.id + ')" title="Delete">🗑</button>' +
             '</div>' +
             '</div>';
     }).join('');
@@ -1706,7 +1769,6 @@ function renderSelectedDateTasks() {
     }
     selectedDateTasks.innerHTML = tasks.map(function (task) {
         const toggleFn = task.source === 'todo' ? 'toggleTodo' : 'toggleDailyTask';
-        const deleteFn = task.source === 'todo' ? 'deleteTodo' : 'deleteDailyTask';
         const sourceLabel = task.source === 'todo' ? 'Todo' : 'Calendar Task';
         const tagsHtml = (task.tags || []).length
             ? '<div class="todo-tags">' + task.tags.map(function (tag) { return '<span class="todo-tag">' + escapeHTML(tag) + '</span>'; }).join('') + '</div>'
@@ -1721,7 +1783,6 @@ function renderSelectedDateTasks() {
             tagsHtml +
             '</div>' +
             '</div>' +
-            '<button class="btn btn-danger" type="button" onclick="' + deleteFn + '(' + task.id + ')">Delete</button>' +
             '</div>';
     }).join('');
 }
@@ -1852,6 +1913,67 @@ function updateTodoTrashFabBadge() {
     }
 }
 
+function openTrashPanel() {
+    var panel = document.getElementById('trashPanel');
+    var backdrop = document.getElementById('trashBackdrop');
+    if (!panel) return;
+    renderTrashPanel();
+    panel.hidden = false; backdrop.hidden = false;
+    requestAnimationFrame(function() {
+        panel.classList.add('open'); backdrop.classList.add('open');
+    });
+}
+
+function closeTrashPanel() {
+    var panel = document.getElementById('trashPanel');
+    var backdrop = document.getElementById('trashBackdrop');
+    if (!panel) return;
+    panel.classList.remove('open'); backdrop.classList.remove('open');
+    setTimeout(function() { panel.hidden = true; backdrop.hidden = true; }, 320);
+}
+
+function renderTrashPanel() {
+    var body = document.getElementById('trashPanelBody');
+    var sub = document.getElementById('trashPanelSub');
+    var completed = todos.filter(function(t) { return t.completed; });
+    if (sub) sub.textContent = completed.length + ' task' + (completed.length !== 1 ? 's' : '');
+    if (!body) return;
+    if (completed.length === 0) {
+        body.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--muted);font-size:0.9rem;">No completed tasks</div>';
+        return;
+    }
+    body.innerHTML = completed.map(function(t) {
+        return '<div class="trash-todo-item">' +
+            '<div class="trash-todo-text">' +
+                '<div class="trash-todo-title">' + escapeHTML(t.title) + '</div>' +
+                '<div class="trash-todo-meta">📅 ' + formatDate(t.date) + ' · 🕒 ' + to12Hour(t.time) + '</div>' +
+            '</div>' +
+            '<button class="trash-restore-btn" onclick="restoreTodo(' + t.id + ')">↩ Restore</button>' +
+            '<button class="trash-delete-btn" onclick="permanentDeleteTodo(' + t.id + ')">✕</button>' +
+        '</div>';
+    }).join('');
+}
+
+function restoreTodo(id) {
+    todos = todos.map(function(t) {
+        return t.id === id ? Object.assign({}, t, { completed: false }) : t;
+    });
+    saveTodos(); renderTodos(); renderTrashPanel(); updateTodoTrashFabBadge();
+}
+
+function permanentDeleteTodo(id) {
+    todos = todos.filter(function(t) { return t.id !== id; });
+    saveTodos(); renderTodos(); renderTrashPanel(); updateTodoTrashFabBadge(); updateStats();
+}
+
+document.getElementById('trashPanelClose')?.addEventListener('click', closeTrashPanel);
+document.getElementById('trashBackdrop')?.addEventListener('click', closeTrashPanel);
+document.getElementById('trashClearAllBtn')?.addEventListener('click', function() {
+    todos = todos.filter(function(t) { return !t.completed; });
+    saveTodos(); renderTodos(); renderTrashPanel(); updateTodoTrashFabBadge(); updateStats();
+    closeTrashPanel();
+});
+
 function renderTodayPanel() {
     if (!todayPanelBody) return;
     var tasks = getTodayTasks();
@@ -1864,7 +1986,6 @@ function renderTodayPanel() {
 
     function renderTaskCard(task) {
         var toggleFn = task.source === 'todo' ? 'toggleTodo' : 'toggleDailyTask';
-        var deleteFn = task.source === 'todo' ? 'deleteTodo' : 'deleteDailyTask';
         var sourceLabel = task.source === 'todo' ? 'Todo' : 'Task';
         var timeStr = task.time ? '🕒 ' + to12Hour(task.time) + ' · ' : '';
         return '<div class="todo-item ' + (task.completed ? 'completed' : '') + '">' +
@@ -1874,7 +1995,6 @@ function renderTodayPanel() {
             '<div class="todo-text">' + escapeHTML(task.title) + '</div>' +
             '<div class="helper">' + timeStr + escapeHTML(task.category) + ' · ' + sourceLabel + '</div>' +
             '</div></div>' +
-            '<button class="btn btn-danger btn-sm" type="button" onclick="' + deleteFn + '(' + task.id + ');renderTodayPanel();updateTodayFabBadge();">×</button>' +
             '</div>';
     }
 
@@ -1943,10 +2063,7 @@ todayClearBtn?.addEventListener('click', function () {
 });
 
 todoTrashFabBtn?.addEventListener('click', function () {
-    setActiveTodoFilter('completed');
-    renderTodos();
-    var todoSection = document.querySelector('.todo-section');
-    if (todoSection) todoSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    openTrashPanel();
 });
 
 function renderAll() {
@@ -2313,19 +2430,24 @@ function attachSwipeListeners() {
             isDragging = false;
             var diff = startX - currentX;
             if (diff >= 160) {
-                // Auto-delete
+                // Auto-delete with animation
                 var id = Number(wrapper.getAttribute('data-id'));
                 var type = wrapper.getAttribute('data-type');
-                if (type === 'reminder') deleteReminder(id);
-                else if (type === 'todo') deleteTodo(id);
+                if (type === 'todo' && !wrapper.dataset.deleting) {
+                    wrapper.dataset.deleting = '1';
+                    flyIntoTrash(wrapper, function() { deleteTodo(id); });
+                } else if (type === 'reminder') deleteReminder(id);
             } else if (diff >= 80) {
-                // Show delete button; click it to confirm
-                reveal && reveal.addEventListener('click', function() {
-                    var id = Number(wrapper.getAttribute('data-id'));
-                    var type = wrapper.getAttribute('data-type');
-                    if (type === 'reminder') deleteReminder(id);
-                    else if (type === 'todo') deleteTodo(id);
-                }, { once: true });
+                // Mid threshold also deletes for faster swipe UX.
+                var id = Number(wrapper.getAttribute('data-id'));
+                var type = wrapper.getAttribute('data-type');
+                if (type === 'todo' && !wrapper.dataset.deleting) {
+                    wrapper.dataset.deleting = '1';
+                    wrapper.classList.remove('swiped');
+                    flyIntoTrash(wrapper, function() { deleteTodo(id); });
+                } else if (type === 'reminder') {
+                    deleteReminder(id);
+                }
             } else {
                 // Reset
                 if (content) content.style.transform = '';

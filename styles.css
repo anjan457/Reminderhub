@@ -1496,6 +1496,14 @@ textarea {
     transform: translateY(-2px) scale(1.04);
     background: color-mix(in srgb, var(--danger) 20%, var(--panel));
 }
+@keyframes trashFabGulp {
+    0%   { transform: scale(1); }
+    25%  { transform: scale(1.35) rotate(-8deg); }
+    55%  { transform: scale(0.85) rotate(5deg); }
+    80%  { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+.trash-fab-gulp { animation: trashFabGulp 0.5s cubic-bezier(0.36,0.07,0.19,0.97) forwards; }
 .todo-trash-fab-badge {
     position: absolute;
     top: -2px;
@@ -1514,6 +1522,72 @@ textarea {
     border: 2px solid var(--panel);
 }
 .todo-trash-fab-badge[hidden] { display: none; }
+
+/* Trash Panel */
+.trash-backdrop {
+    position: fixed; inset: 0; z-index: 3100;
+    background: rgba(0,0,0,0.35);
+    backdrop-filter: blur(2px);
+    opacity: 0; transition: opacity 0.28s;
+}
+.trash-backdrop.open { opacity: 1; }
+.trash-panel {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 3200;
+    background: var(--panel);
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.14);
+    max-height: 72vh; display: flex; flex-direction: column;
+    transform: translateY(100%); transition: transform 0.32s cubic-bezier(0.22,1,0.36,1);
+}
+.trash-panel.open { transform: translateY(0); }
+.trash-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 20px 14px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.trash-panel-title { font-size: 1.05rem; font-weight: 700; color: var(--text); }
+.trash-panel-sub { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+.trash-panel-actions { display: flex; align-items: center; gap: 10px; }
+.trash-clear-btn {
+    font: inherit; font-size: 0.8rem; font-weight: 600;
+    color: var(--danger); background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.2); border-radius: 8px;
+    padding: 6px 12px; cursor: pointer; transition: background 0.15s;
+}
+.trash-clear-btn:hover { background: rgba(239,68,68,0.16); }
+.trash-close-btn {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--input-bg);
+    color: var(--muted); font-size: 0.85rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
+}
+.trash-close-btn:hover { background: var(--border); color: var(--text); }
+.trash-panel-body { overflow-y: auto; padding: 12px 16px 24px; flex: 1; }
+.trash-todo-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px; border-radius: 12px;
+    background: var(--input-bg); border: 1px solid var(--border);
+    margin-bottom: 8px; gap: 12px;
+}
+.trash-todo-text { flex: 1; }
+.trash-todo-title { font-size: 0.92rem; color: var(--muted); text-decoration: line-through; }
+.trash-todo-meta { font-size: 0.75rem; color: var(--muted); opacity: 0.6; margin-top: 2px; }
+.trash-restore-btn {
+    font: inherit; font-size: 0.75rem; font-weight: 600;
+    color: var(--success); background: rgba(34,197,94,0.08);
+    border: 1px solid rgba(34,197,94,0.2); border-radius: 8px;
+    padding: 5px 10px; cursor: pointer; white-space: nowrap;
+    transition: background 0.15s;
+}
+.trash-restore-btn:hover { background: rgba(34,197,94,0.16); }
+.trash-delete-btn {
+    font: inherit; font-size: 0.78rem;
+    color: var(--danger); background: none; border: none;
+    cursor: pointer; padding: 4px 6px; border-radius: 6px;
+    transition: background 0.15s;
+}
+.trash-delete-btn:hover { background: rgba(239,68,68,0.1); }
 
 .today-fab {
     position: fixed;
@@ -2174,6 +2248,72 @@ textarea {
     transition: transform 0.2s ease;
     background: inherit;
     border-radius: 12px;
+}
+
+.todo-fly-ghost {
+    transform-origin: center center;
+    transition: transform 0.56s cubic-bezier(0.25, 0.8, 0.2, 1), opacity 0.46s ease;
+    will-change: transform, opacity;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.22);
+}
+
+.vacuum-trail-line {
+    position: fixed;
+    height: 2px;
+    border-radius: 999px;
+    pointer-events: none;
+    z-index: 2150;
+    transform-origin: 0 50%;
+    transform: rotate(var(--trail-angle));
+    background: linear-gradient(90deg, rgba(253, 224, 71, 0.95), rgba(253, 224, 71, 0.1) 65%, transparent 100%);
+    box-shadow: 0 0 8px rgba(253, 224, 71, 0.45);
+    animation: vacuumTrailFlow 0.48s ease-out forwards;
+}
+
+/* Cursor-searchable animation tags:
+   Vacuum Pull / Void Suck
+   Fade Drift
+   Crumple Collapse
+   Toss In / Arc Throw
+*/
+.anim-vacuum-pull {}
+.anim-void-suck {}
+.anim-fade-drift {}
+.anim-crumple-collapse {}
+.anim-toss-in {}
+.anim-arc-throw {}
+
+.todo-row-collapsing {
+    overflow: hidden;
+    animation: todoRowCollapse 0.3s ease forwards;
+}
+
+@keyframes todoRowCollapse {
+    from {
+        max-height: 260px;
+        margin-bottom: 10px;
+        opacity: 1;
+    }
+    to {
+        max-height: 0;
+        margin-bottom: 0;
+        opacity: 0;
+    }
+}
+
+@keyframes vacuumTrailFlow {
+    0% {
+        opacity: 0;
+        transform: translateY(0) rotate(var(--trail-angle)) scaleX(0.22);
+    }
+    35% {
+        opacity: 1;
+        transform: translateY(calc(var(--trail-bend) * 0.18)) rotate(var(--trail-angle)) scaleX(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(var(--trail-bend)) rotate(var(--trail-angle)) scaleX(0.55);
+    }
 }
 
 /* ══════════════════════════════════════════
@@ -2935,6 +3075,40 @@ body.dark .quick-dark-btn {
     to   { opacity: 1; transform: translateX(0); }
 }
 .todo-item { animation: todoSlideIn 0.32s cubic-bezier(0.22,1,0.36,1) both; }
+
+/* Todo crumple-and-throw delete animation */
+@keyframes todoCrumpleOut {
+    0%   { transform: scale(1)    rotate(0deg)  skewX(0deg)    translateY(0)    translateX(0);    opacity: 1;    }
+    18%  { transform: scale(1.07) rotate(-4deg) skewX(0deg)    translateY(-10px) translateX(-4px); opacity: 1;   }
+    38%  { transform: scale(0.87) rotate(7deg)  skewX(-11deg)  translateY(-6px)  translateX(12px); opacity: 1;   }
+    58%  { transform: scale(0.68) rotate(-10deg) skewX(8deg)   translateY(-16px) translateX(28px); opacity: 0.8; }
+    80%  { transform: scale(0.38) rotate(22deg) skewX(-3deg)   translateY(-28px) translateX(60px); opacity: 0.4; }
+    100% { transform: scale(0.08) rotate(42deg) skewX(0deg)    translateY(-38px) translateX(95px); opacity: 0;   }
+}
+@keyframes todoCollapseHeight {
+    from { max-height: 120px; margin-bottom: 8px; }
+    to   { max-height: 0;     margin-bottom: 0;   overflow: hidden; }
+}
+/* wrapper: allow content to fly outside its bounds */
+.todo-deleting {
+    overflow: visible !important;
+    pointer-events: none;
+}
+/* animate the visible card, not the wrapper */
+.todo-deleting .swipe-content {
+    animation: todoCrumpleOut 0.45s cubic-bezier(0.55, 0, 0.75, 0.5) forwards;
+    transform-origin: center center;
+    position: relative; z-index: 10;
+}
+/* after the throw, collapse the empty space */
+.todo-deleting.todo-collapsing {
+    animation: todoCollapseHeight 0.25s ease forwards;
+}
+.todo-trash-btn {
+    font-size: 1rem; padding: 6px 10px; border-radius: 10px;
+    transition: transform 0.15s, background 0.15s;
+}
+.todo-trash-btn:hover { transform: scale(1.2) rotate(-10deg); }
 
 /* Stats gradient text + lift */
 .stat { transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1); cursor: default; }
