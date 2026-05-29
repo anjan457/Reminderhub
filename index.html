@@ -118,6 +118,7 @@
                     <div class="panel-header">
                         <div class="panel-title">
                             <h2>Upcoming Reminders</h2>
+                            <p id="upcomingReminderSubtitle"></p>
                         </div>
                         <div class="reminder-header-actions">
                             <button class="btn btn-ghost reminder-digest-btn" id="reminderDigestBtn" type="button" title="Daily 7 AM email for upcoming reminders">🔔 7 AM</button>
@@ -144,12 +145,17 @@
                                     required />
                             </div>
                             <div class="form-group">
-                                <label for="date">Date</label>
+                                <label for="date">Start date</label>
                                 <input id="date" type="date" required />
                             </div>
                             <div class="form-group">
-                                <label for="time">Time</label>
-                                <input id="time" type="time" required />
+                                <label for="endDate">End date <span class="label-optional">(optional)</span></label>
+                                <input id="endDate" type="date" />
+                                <p class="helper study-plan-hint">Study plan-এর জন্য: start → end থেকে দিন অটো।</p>
+                            </div>
+                            <div class="form-group">
+                                <label for="time">Time <span class="label-optional">(optional)</span></label>
+                                <input id="time" type="time" />
                             </div>
                             <div class="form-group">
                                 <label for="category">Category</label>
@@ -438,6 +444,61 @@
             <div class="notif-log-wrap">
                 <h3 class="notif-log-title">Notification history</h3>
                 <ul class="notif-log-list" id="notifLogList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal daily-plan-modal" id="dailyPlanModal">
+        <div class="modal-card daily-plan-modal-card">
+            <div class="modal-top">
+                <div>
+                    <h2 style="margin:0;" id="dailyPlanModalTitle">Daily plan</h2>
+                    <p class="helper" id="dailyPlanModalSub">Add Reminder-এর পর জিজ্ঞেস করা হয়।</p>
+                </div>
+                <button class="btn btn-danger" id="dailyPlanModalClose" type="button">Close</button>
+            </div>
+            <div id="dailyPlanAskStep" class="daily-plan-step">
+                <p class="daily-plan-question">Do you want to add a daily plan?</p>
+                <fieldset class="daily-plan-choices">
+                    <label class="daily-plan-choice">
+                        <input type="radio" name="dailyPlanChoice" value="yes" />
+                        <span><strong>Yes</strong> — প্রতিদিন Reading, Writing, Listening, Speaking (৬০ দিন)</span>
+                    </label>
+                    <label class="daily-plan-choice">
+                        <input type="radio" name="dailyPlanChoice" value="no" checked />
+                        <span><strong>No</strong> — শুধু সাধারণ reminder</span>
+                    </label>
+                </fieldset>
+                <div class="daily-plan-modal-actions">
+                    <button class="btn btn-primary" id="dailyPlanContinueBtn" type="button">Continue</button>
+                </div>
+            </div>
+            <div id="dailyPlanFieldsStep" class="daily-plan-step" hidden>
+                <div class="reminder-study-plan-fields">
+                    <div class="daily-plan-duration-banner" id="dailyPlanDurationSummary">—</div>
+                    <input id="reminderStudyDays" type="hidden" value="60" />
+                    <div class="study-plan-form-grid">
+                        <div class="form-group">
+                            <label for="reminderStudyMorning">Morning reminder</label>
+                            <input id="reminderStudyMorning" type="time" value="08:00" />
+                        </div>
+                        <div class="form-group">
+                            <label for="reminderStudyCheck">Evening check</label>
+                            <input id="reminderStudyCheck" type="time" value="20:00" />
+                        </div>
+                    </div>
+                    <p class="helper study-plan-hint">Duration = Start date থেকে End date পর্যন্ত (form-এ দেওয়া)।</p>
+                    <div class="study-plan-items-head">
+                        <span>Daily tasks</span>
+                        <button class="btn btn-sm" id="reminderStudyIeltsBtn" type="button">IELTS template</button>
+                    </div>
+                    <div id="reminderStudyPlanItemsEditor" class="study-plan-items-editor"></div>
+                    <button class="btn btn-sm" id="reminderStudyAddItemBtn" type="button">+ Add task</button>
+                </div>
+                <div class="daily-plan-modal-actions">
+                    <button class="btn btn-ghost" id="dailyPlanBackBtn" type="button">Back</button>
+                    <button class="btn btn-primary" id="dailyPlanConfirmBtn" type="button">Add Reminder</button>
+                </div>
             </div>
         </div>
     </div>

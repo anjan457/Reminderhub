@@ -742,7 +742,9 @@ select,
     justify-content: space-between;
     align-items: center;
     gap: 12px;
-    margin-bottom: 18px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
 }
 .reminder-header-actions {
     display: flex;
@@ -761,13 +763,17 @@ select,
 .panel-title h2,
 .panel-title h3 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
 }
 
 .panel-title p {
-    margin: 6px 0 0;
+    margin: 5px 0 0;
     color: var(--muted);
-    font-size: 0.92rem;
+    font-size: 0.84rem;
+    font-weight: 400;
+    line-height: 1.4;
 }
 
 .btn,
@@ -896,17 +902,23 @@ textarea {
 
 .reminder-grid {
     display: grid;
-    gap: 14px;
+    gap: 12px;
 }
 
 .reminder-card {
-    padding: 18px;
-    border-radius: 16px;
+    padding: 20px 22px;
+    border-radius: 20px;
     background: var(--panel);
     border: 1px solid var(--border);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.055);
     display: grid;
     grid-template-columns: 1.1fr auto;
     gap: 18px;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.25s ease;
+}
+.reminder-card:hover {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.09);
+    border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
 }
 
 .reminder-top {
@@ -915,6 +927,34 @@ textarea {
     gap: 12px;
     align-items: flex-start;
     margin-bottom: 8px;
+}
+.reminder-main {
+    min-width: 0;
+}
+.reminder-badges-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 6px 0 6px;
+    align-items: center;
+}
+.reminder-priority-row {
+    margin: 0 0 8px;
+}
+.reminder-priority-badge {
+    font-size: 0.78rem;
+    padding: 4px 10px;
+}
+.reminder-note {
+    margin: 8px 0 10px;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-weight: 500;
+    line-height: 1.6;
+    padding: 10px 14px;
+    background: var(--panel-soft);
+    border-left: 3px solid var(--primary);
+    border-radius: 0 10px 10px 0;
 }
 
 .badge {
@@ -928,61 +968,85 @@ textarea {
 }
 
 .reminder-card h3 {
-    margin: 0 0 6px;
-    font-size: 1.2rem;
+    margin: 0 0 7px;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: var(--text);
+    text-transform: uppercase;
 }
 
 .reminder-card p {
     margin: 0;
     color: var(--muted);
-    line-height: 1.6;
-    font-size: 0.94rem;
+    line-height: 1.55;
+    font-size: 0.87rem;
 }
 
 .mini-countdown {
     display: grid;
-    grid-template-columns: repeat(4, minmax(66px, 1fr));
-    gap: 10px;
-    align-self: center;
+    grid-template-columns: repeat(2, minmax(58px, 1fr));
+    gap: 8px;
+    align-self: start;
+    padding-top: 2px;
 }
 
 .unit {
     text-align: center;
-    padding: 12px 10px;
-    border-radius: 16px;
+    padding: 10px 8px;
+    border-radius: 14px;
     background: var(--panel-soft);
     border: 1px solid var(--border);
-    min-width: 70px;
+    min-width: 62px;
 }
 
 .unit strong {
     display: block;
-    font-size: 1.1rem;
-    margin-bottom: 4px;
+    font-size: 1.3rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 3px;
+    color: var(--text);
 }
 
 .unit span {
     color: var(--muted);
-    font-size: 0.76rem;
+    font-size: 0.66rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
+    font-weight: 600;
 }
 
 .reminder-footer {
     display: flex;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
     align-items: center;
     flex-wrap: wrap;
     margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
 }
 
 .reminder-meta {
     display: flex;
-    gap: 10px;
+    gap: 6px;
     flex-wrap: wrap;
+    align-items: center;
     color: var(--muted);
     font-size: 0.88rem;
+}
+.reminder-meta span {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 99px;
+    background: var(--panel-soft);
+    border: 1px solid var(--border);
+    font-size: 0.78rem;
+    color: var(--muted);
+    white-space: nowrap;
 }
 
 .icon-btns {
@@ -1112,7 +1176,8 @@ textarea {
     gap: 10px;
     margin-bottom: 4px;
 }
-.reminder-digest-btn { padding: 8px 12px; font-size: 0.9rem; flex-shrink: 0; white-space: nowrap; }
+.reminder-digest-btn { padding: 7px 11px; font-size: 0.82rem; flex-shrink: 0; white-space: nowrap; }
+.reminder-header-actions .btn { font-size: 0.82rem; padding: 7px 13px; }
 
 /* Notification settings */
 .notif-settings-card {
@@ -1982,10 +2047,10 @@ textarea {
     opacity: 0.4;
 }
 .reminder-done-btn {
-    background: rgba(34, 197, 94, 0.10);
-    border: 1px solid rgba(34, 197, 94, 0.22);
+    background: rgba(34, 197, 94, 0.09);
+    border: 1px solid rgba(34, 197, 94, 0.25);
     color: #16a34a;
-    border-radius: 10px;
+    border-radius: 99px;
     padding: 7px 12px;
     font: inherit;
     font-size: 0.82rem;
@@ -3213,4 +3278,375 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 .form-group input:hover, .form-group textarea:hover, .form-group select:hover {
     border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
     transition: border-color 0.2s;
+}
+
+/* Daily Study Plan modal + reminder cards */
+.daily-plan-modal-card {
+    max-width: 520px;
+    width: min(520px, calc(100vw - 32px));
+}
+.label-optional {
+    font-weight: 500;
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+.daily-plan-duration-banner {
+    margin: 0 0 0.85rem;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--primary-strong, var(--primary));
+    background: color-mix(in srgb, var(--primary) 12%, var(--panel-soft));
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+}
+.daily-plan-step {
+    width: 100%;
+    min-width: 0;
+}
+.daily-plan-question {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0 0 1rem;
+    line-height: 1.4;
+}
+.daily-plan-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+.daily-plan-choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    width: 100%;
+    margin: 0;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.45;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--panel-soft);
+    box-sizing: border-box;
+}
+.daily-plan-choice span {
+    flex: 1;
+    min-width: 0;
+    white-space: normal;
+    word-break: normal;
+}
+.daily-plan-choice input[type="radio"] {
+    width: 1.15rem;
+    height: 1.15rem;
+    min-width: 1.15rem;
+    margin: 0.15rem 0 0;
+    padding: 0;
+    flex-shrink: 0;
+    box-shadow: none;
+    accent-color: var(--primary);
+}
+.daily-plan-choice:has(input:checked) {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, var(--panel-soft));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.daily-plan-modal input[type="radio"],
+.daily-plan-modal input[type="checkbox"] {
+    width: auto;
+    min-height: unset;
+}
+.daily-plan-modal-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 1.25rem;
+    flex-wrap: wrap;
+}
+.reminder-study-plan-fields {
+    padding: 0.25rem 0 0;
+}
+.reminder-study-block {
+    margin: 0.75rem 0 0.25rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--panel-soft) 80%, var(--primary) 6%);
+    border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
+    border-left: 3px solid var(--primary);
+}
+.reminder-study-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.45rem;
+}
+.reminder-study-label { margin: 0 0 0.5rem; font-weight: 600; font-size: 0.85rem; }
+.reminder-study-edit-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.65rem;
+    margin-bottom: 0.5rem;
+}
+.reminder-study-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+}
+.reminder-study-field-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.reminder-study-edit-grid input[type="number"],
+.reminder-study-edit-grid input[type="time"] {
+    width: 100%;
+    min-width: 0;
+    padding: 10px 12px;
+    box-sizing: border-box;
+}
+.reminder-study-edit-hint {
+    margin: 0 0 0.5rem;
+    font-size: 0.8rem;
+}
+.study-plan-item-row--edit input.study-plan-item-done {
+    width: 1.2rem;
+    height: 1.2rem;
+    min-width: 1.2rem;
+    padding: 0;
+    margin: 0;
+    flex-shrink: 0;
+    accent-color: var(--primary);
+    cursor: pointer;
+    box-shadow: none;
+    border-radius: 5px;
+}
+.study-plan-item-row--edit {
+    grid-template-columns: auto 1fr 4.5rem auto auto;
+}
+.reminder-study-edit-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.reminder-study-times { margin: 0.35rem 0 0; font-size: 0.78rem; }
+.study-plan-badge--inline { font-size: 0.72rem; margin-right: 0.25rem; }
+.study-plan-badge {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.15rem 0.45rem;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
+    color: var(--primary);
+}
+.study-days-done {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--success, #15803d);
+    padding: 0.2rem 0.55rem;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--success, #22c55e) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--success, #22c55e) 35%, var(--border));
+    white-space: nowrap;
+}
+.reminder-meta .study-days-done { margin-left: 0.15rem; }
+.study-days-done--inline { margin-left: 0.35rem; }
+.study-days-done--partial {
+    color: #b45309;
+    background: color-mix(in srgb, #f59e0b 12%, transparent);
+    border-color: color-mix(in srgb, #f59e0b 35%, var(--border));
+}
+.study-plan-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem 0.75rem;
+}
+.study-plan-form-grid .full { grid-column: 1 / -1; }
+.study-plan-hint { margin-top: 0.25rem; font-size: 0.78rem; }
+.study-plan-items-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin: 0.75rem 0 0.4rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+.study-plan-items-editor { display: flex; flex-direction: column; gap: 0.4rem; }
+.study-plan-item-row {
+    display: grid;
+    grid-template-columns: 1fr 4.5rem auto auto;
+    gap: 0.35rem;
+    align-items: center;
+}
+.study-plan-item-min-label { font-size: 0.8rem; color: var(--muted); }
+.study-plan-item-remove { min-width: 2rem; padding: 0.2rem 0.45rem; }
+.study-plan-checklist { display: flex; flex-direction: column; gap: 0.35rem; }
+.study-plan-check {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+.study-plan-check em { font-style: normal; color: var(--muted); font-size: 0.82rem; }
+
+/* Card view — custom checkboxes */
+.reminder-study-check {
+    gap: 0.65rem;
+    padding: 0.5rem 0.55rem;
+    margin: 0 -0.2rem;
+    border-radius: 10px;
+    transition: background 0.2s ease;
+}
+.reminder-study-check:hover:not(.reminder-study-check--done) {
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.reminder-study-check input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1.38rem;
+    height: 1.38rem;
+    min-width: 1.38rem;
+    padding: 0;
+    margin: 0;
+    flex-shrink: 0;
+    border: 2px solid color-mix(in srgb, var(--primary) 50%, var(--border));
+    border-radius: 7px;
+    background: var(--panel-soft);
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s, transform 0.15s;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+.reminder-study-check input[type="checkbox"]:hover:not(:disabled) {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.reminder-study-check input[type="checkbox"]:checked {
+    border-color: #16a34a;
+    background: linear-gradient(145deg, #4ade80 0%, #22c55e 45%, #16a34a 100%);
+    box-shadow: 0 2px 10px rgba(34, 197, 94, 0.4);
+}
+.reminder-study-check input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 0.42rem;
+    top: 0.14rem;
+    width: 0.32rem;
+    height: 0.62rem;
+    border: solid #fff;
+    border-width: 0 2.5px 2.5px 0;
+    transform: rotate(45deg);
+}
+.reminder-study-check input[type="checkbox"]:disabled {
+    cursor: default;
+    opacity: 1;
+}
+.reminder-study-check--done {
+    background: color-mix(in srgb, #22c55e 12%, transparent);
+}
+.reminder-study-check--done > span {
+    color: color-mix(in srgb, var(--text) 70%, var(--muted));
+}
+.reminder-study-check--done > span > em {
+    opacity: 0.8;
+}
+.study-plan-missed {
+    margin: 0.55rem 0 0;
+    font-size: 0.82rem;
+    color: #b45309;
+}
+
+/* Per-task note input */
+.sp-check-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.sp-note-input {
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.sp-note-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+.sp-note-input::placeholder { color: var(--muted); opacity: 0.7; }
+
+/* Head buttons group */
+.sp-head-btns {
+    display: flex;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+/* Day log section */
+.sp-log-section {
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed color-mix(in srgb, var(--primary) 30%, var(--border));
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+.sp-log-day {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.sp-log-day-header {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.sp-log-entries {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+.sp-log-entry {
+    display: flex;
+    gap: 0.4rem;
+    align-items: baseline;
+    font-size: 0.84rem;
+    color: var(--text);
+}
+.sp-log-item-name {
+    font-weight: 600;
+    color: var(--muted);
+    font-size: 0.78rem;
+    flex-shrink: 0;
+    min-width: 60px;
+}
+.sp-log-entry-text {
+    color: var(--text);
+}
+.sp-log-empty {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 0.4rem 0 0;
+}
+
+@media (max-width: 520px) {
+    .study-plan-form-grid { grid-template-columns: 1fr; }
+    .study-plan-item-row { grid-template-columns: 1fr 4rem auto auto; }
+    .reminder-study-edit-grid { grid-template-columns: 1fr; }
 }

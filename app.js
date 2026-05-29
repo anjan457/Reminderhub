@@ -10,7 +10,8 @@ const STORAGE_KEYS = {
     reminderShowCompleted: 'rh_reminder_show_completed',
     notificationSettings: 'rh_notification_settings',
     notificationLog: 'rh_notification_log',
-    notes: 'rh_notes'
+    notes: 'rh_notes',
+    studyPlans: 'rh_study_plans' // legacy — migrated into reminders
 };
 
 const FOCUS_ANIMS = ['breathe', 'aurora', 'waves', 'orbit', 'ripple', 'nebula', 'float', 'none'];
@@ -113,9 +114,11 @@ let showCompletedReminders = readStorageString(STORAGE_KEYS.reminderShowComplete
 const todoFilterChips = document.getElementById('todoFilterChips');
 let activeTodoFilter = 'all';
 
-let reminders = readStorageArray(STORAGE_KEYS.reminders);
+let reminders = normalizeReminders(readStorageArray(STORAGE_KEYS.reminders));
 let todos = normalizeTodos(readStorageArray(STORAGE_KEYS.todos));
 let dailyTasks = normalizeDailyTasks(readStorageArray(STORAGE_KEYS.dailyTasks));
+let reminderStudyEditId = null;
+let reminderStudyLogId = null;
 let calendarDate = new Date();
 let selectedCalendarDate = getTodayISO();
 let isAddingTodo = false;
@@ -156,6 +159,7 @@ function pushStateToOfflineStore() {
     var payload = {
         todos: todos,
         reminders: reminders,
+        studyPlans: getStudyPlansFromReminders(),
         notificationSettings: getNotificationSettings(),
         updatedAt: Date.now()
     };
@@ -174,6 +178,12 @@ function mergeTodosFromServiceWorker(updatedTodos) {
     localStorage.setItem(STORAGE_KEYS.todos, JSON.stringify(todos));
     renderTodos();
     updateStats();
+}
+
+function mergeStudyPlansFromServiceWorker(updatedPlans) {
+    applyStudyPlanUpdatesToReminders(updatedPlans);
+    saveReminders();
+    renderReminderLists();
 }
 
 async function ensureTodoNotificationPermission() {
@@ -352,24 +362,76 @@ function normalizeDailyTasks(rawTasks) {
     });
 }
 
+function addDaysISO(dateISO, days) {
+    if (window.MyndlySync && MyndlySync.addDaysISO) return MyndlySync.addDaysISO(dateISO, days);
+    var d = new Date(String(dateISO) + 'T12:00:00');
+    d.setDate(d.getDate() + days);
+    return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+}
+
+function daysBetweenInclusive(startISO, endISO) {
+    if (!startISO || !endISO) return 1;
+    if (endISO < startISO) return 1;
+    var s = new Date(startISO + 'T12:00:00');
+    var e = new Date(endISO + 'T12:00:00');
+    return Math.max(1, Math.floor((e - s) / 86400000) + 1);
+}
+
+function getReminderEndDate(reminder) {
+    if (reminder.endDate) return reminder.endDate;
+    if (reminder.studyPlan && reminder.date) {
+        return addDaysISO(reminder.date, Math.max(1, Number(reminder.studyPlan.durationDays) || 1) - 1);
+    }
+    return reminder.date;
+}
+
+function syncStudyPlanDurationFromDates(reminder) {
+    if (!reminder.studyPlan || !reminder.date) return;
+    var end = getReminderEndDate(reminder);
+    reminder.endDate = end;
+    reminder.studyPlan.durationDays = daysBetweenInclusive(reminder.date, end);
+}
+
 function createReminderObject(formData) {
-    const dateTime = new Date(formData.date + 'T' + formData.time);
-    return {
+    var timeVal = (formData.time || '').trim();
+    const dateTime = new Date(formData.date + 'T' + (timeVal || '12:00'));
+    var reminder = {
         id: Date.now(),
         title: formData.title,
         date: formData.date,
-        time: formData.time,
+        endDate: formData.endDate || formData.date,
+        time: timeVal,
         category: formData.category,
         priority: formData.priority,
         note: formData.note,
         pinOrder: formData.pinOrder ? Number(formData.pinOrder) : null,
-        // Feature 6
         completed: false,
-        // Feature 8
         repeat: formData.repeat || 'none',
         createdAt: new Date().toISOString(),
         targetISO: dateTime.toISOString()
     };
+    if (formData.studyPlan) {
+        reminder.studyPlan = normalizeReminderStudyPlanData(formData.studyPlan);
+        syncStudyPlanDurationFromDates(reminder);
+        if (reminder.repeat === 'none') reminder.repeat = 'daily';
+    }
+    return reminder;
+}
+
+function normalizeReminders(list) {
+    if (!Array.isArray(list)) return [];
+    return list.map(function (r) {
+        if (r.studyPlan) {
+            r.studyPlan = normalizeReminderStudyPlanData(r.studyPlan);
+            if (r.date && !r.endDate) {
+                r.endDate = addDaysISO(r.date, Math.max(1, r.studyPlan.durationDays) - 1);
+            }
+            syncStudyPlanDurationFromDates(r);
+        } else if (!r.endDate) {
+            r.endDate = r.date;
+        }
+        return r;
+    });
 }
 
 function createDailyTaskObject(formData) {
@@ -697,28 +759,153 @@ function syncTodoIntoCalendar(todo) {
     }));
 }
 
-reminderForm.addEventListener('submit', function (e) {
-    e.preventDefault();
-    const formData = {
+var pendingReminderFormData = null;
+
+function readReminderFormData() {
+    return {
         title: document.getElementById('title').value.trim(),
         date: document.getElementById('date').value,
+        endDate: document.getElementById('endDate').value,
         time: document.getElementById('time').value,
         category: document.getElementById('category').value,
         priority: document.getElementById('priority').value,
         note: document.getElementById('note').value.trim(),
         pinOrder: document.getElementById('pinOrder').value.trim(),
-        repeat: document.getElementById('reminderRepeat').value  // Feature 8
+        repeat: document.getElementById('reminderRepeat').value
     };
-    if (!formData.title || !formData.date || !formData.time) {
-        alert('Please fill in title, date and time.');
+}
+
+function readStudyPlanFromModal(formData) {
+    var items = readReminderStudyPlanItemsFromEditor(document.getElementById('reminderStudyPlanItemsEditor'));
+    var morningEl = document.getElementById('reminderStudyMorning');
+    var checkEl = document.getElementById('reminderStudyCheck');
+    var start = formData && formData.date;
+    var end = formData && formData.endDate;
+    var durationDays = daysBetweenInclusive(start, end);
+    var daysEl = document.getElementById('reminderStudyDays');
+    if (daysEl) daysEl.value = String(durationDays);
+    return {
+        durationDays: durationDays,
+        morningTime: morningEl ? morningEl.value : '08:00',
+        checkTime: checkEl ? checkEl.value : '20:00',
+        items: items,
+        progress: {},
+        notified: {}
+    };
+}
+
+function updateDailyPlanDurationSummary() {
+    var el = document.getElementById('dailyPlanDurationSummary');
+    if (!el) return;
+    if (!pendingReminderFormData || !pendingReminderFormData.date || !pendingReminderFormData.endDate) {
+        el.textContent = 'Set Start date and End date on the reminder form.';
         return;
+    }
+    if (pendingReminderFormData.endDate < pendingReminderFormData.date) {
+        el.textContent = 'End date must be on or after Start date.';
+        return;
+    }
+    var days = daysBetweenInclusive(pendingReminderFormData.date, pendingReminderFormData.endDate);
+    var daysEl = document.getElementById('reminderStudyDays');
+    if (daysEl) daysEl.value = String(days);
+    el.textContent = days + ' days · ' + formatDate(pendingReminderFormData.date) + ' → ' + formatDate(pendingReminderFormData.endDate);
+}
+
+function suggestDefaultEndDate() {
+    var startEl = document.getElementById('date');
+    var endEl = document.getElementById('endDate');
+    if (!startEl || !endEl || !startEl.value) return;
+    if (!endEl.value || endEl.value < startEl.value) {
+        endEl.value = addDaysISO(startEl.value, 59);
+    }
+}
+
+function finalizeReminderCreate(formData, withStudyPlan) {
+    if (withStudyPlan) {
+        var items = readReminderStudyPlanItemsFromEditor(document.getElementById('reminderStudyPlanItemsEditor'));
+        if (!items.length) {
+            alert('Add at least one daily task or use IELTS template.');
+            return false;
+        }
+        formData.studyPlan = readStudyPlanFromModal(formData);
     }
     reminders.push(createReminderObject(formData));
     sortReminders();
     saveReminders();
     renderAll();
     reminderForm.reset();
+    resetReminderStudyPlanForm();
     setPickerValue(getPickerByKey('reminder'), 'Personal');
+    closeDailyPlanModal();
+    return true;
+}
+
+function showDailyPlanAskStep() {
+    var ask = document.getElementById('dailyPlanAskStep');
+    var fields = document.getElementById('dailyPlanFieldsStep');
+    var title = document.getElementById('dailyPlanModalTitle');
+    var sub = document.getElementById('dailyPlanModalSub');
+    if (ask) ask.hidden = false;
+    if (fields) fields.hidden = true;
+    if (title) title.textContent = 'Daily plan';
+    if (sub) sub.textContent = 'Do you want to add a daily study plan with this reminder?';
+    var noRadio = document.querySelector('input[name="dailyPlanChoice"][value="no"]');
+    if (noRadio) noRadio.checked = true;
+}
+
+function refreshPendingReminderDatesFromForm() {
+    if (!pendingReminderFormData) return;
+    var fresh = readReminderFormData();
+    pendingReminderFormData.date = fresh.date;
+    pendingReminderFormData.endDate = fresh.endDate;
+    pendingReminderFormData.time = fresh.time;
+}
+
+function showDailyPlanFieldsStep() {
+    var ask = document.getElementById('dailyPlanAskStep');
+    var fields = document.getElementById('dailyPlanFieldsStep');
+    var title = document.getElementById('dailyPlanModalTitle');
+    var sub = document.getElementById('dailyPlanModalSub');
+    if (ask) ask.hidden = true;
+    if (fields) fields.hidden = false;
+    if (title) title.textContent = 'Daily study plan';
+    if (sub) sub.textContent = 'Daily tasks — duration comes from Start and End date on the form.';
+    refreshPendingReminderDatesFromForm();
+    updateDailyPlanDurationSummary();
+}
+
+function openDailyPlanModal(formData) {
+    pendingReminderFormData = formData;
+    var modalEl = document.getElementById('dailyPlanModal');
+    showDailyPlanAskStep();
+    resetReminderStudyPlanForm();
+    if (modalEl) modalEl.classList.add('open');
+}
+
+function closeDailyPlanModal() {
+    var modalEl = document.getElementById('dailyPlanModal');
+    pendingReminderFormData = null;
+    if (modalEl) modalEl.classList.remove('open');
+    showDailyPlanAskStep();
+}
+
+function getDailyPlanChoice() {
+    var picked = document.querySelector('input[name="dailyPlanChoice"]:checked');
+    return picked ? picked.value : 'no';
+}
+
+reminderForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var formData = readReminderFormData();
+    if (!formData.title || !formData.date || !formData.endDate) {
+        alert('Please fill in title, start date and end date.');
+        return;
+    }
+    if (formData.endDate < formData.date) {
+        alert('End date must be on or after Start date.');
+        return;
+    }
+    openDailyPlanModal(formData);
 });
 
 addTodoBtn.addEventListener('click', addTodo);
@@ -1533,6 +1720,629 @@ function maybeNotifyTodos() {
 }
 
 /* ════════════════════════════════════════
+   Daily Study Plan (inside reminders)
+════════════════════════════════════════ */
+var IELTS_STUDY_TEMPLATE = [
+    { title: 'Reading', minutes: 60 },
+    { title: 'Writing', minutes: 60 },
+    { title: 'Listening', minutes: 60 },
+    { title: 'Speaking', minutes: 60 }
+];
+
+function slugStudyItemId(title, index) {
+    var base = String(title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return base || ('task-' + (index + 1));
+}
+
+function normalizeReminderStudyPlanData(sp) {
+    if (!sp) return null;
+    var items = Array.isArray(sp.items) ? sp.items : [];
+    return {
+        durationDays: Math.max(1, Number(sp.durationDays) || 60),
+        morningTime: sp.morningTime || '08:00',
+        checkTime: sp.checkTime || '20:00',
+        items: items.map(function (item, i) {
+            return {
+                id: item.id || slugStudyItemId(item.title, i),
+                title: String(item.title || 'Task').trim(),
+                minutes: Number(item.minutes) > 0 ? Number(item.minutes) : 60
+            };
+        }),
+        progress: sp.progress && typeof sp.progress === 'object' ? sp.progress : {},
+        notified: sp.notified && typeof sp.notified === 'object' ? sp.notified : {},
+        dayNotes: sp.dayNotes && typeof sp.dayNotes === 'object' ? sp.dayNotes : {}
+    };
+}
+
+function reminderToStudyPlan(reminder) {
+    if (!reminder || !reminder.studyPlan) return null;
+    var sp = reminder.studyPlan;
+    return {
+        id: reminder.id,
+        title: reminder.title,
+        startDate: reminder.date,
+        durationDays: sp.durationDays,
+        morningTime: sp.morningTime,
+        checkTime: sp.checkTime,
+        items: sp.items,
+        progress: sp.progress,
+        notified: sp.notified
+    };
+}
+
+function getStudyPlansFromReminders() {
+    return reminders
+        .filter(function (r) { return r.studyPlan && !r.completed; })
+        .map(reminderToStudyPlan)
+        .filter(Boolean);
+}
+
+function applyStudyPlanUpdatesToReminders(updatedPlans) {
+    if (!Array.isArray(updatedPlans)) return;
+    updatedPlans.forEach(function (plan) {
+        var reminder = reminders.find(function (r) { return r.id === plan.id; });
+        if (reminder && reminder.studyPlan) {
+            reminder.studyPlan.progress = plan.progress;
+            reminder.studyPlan.notified = plan.notified;
+        }
+    });
+}
+
+function migrateLegacyStudyPlans() {
+    var legacy = readStorageArray(STORAGE_KEYS.studyPlans);
+    if (!legacy.length) return;
+    legacy.forEach(function (plan) {
+        var exists = reminders.some(function (r) { return r.id === plan.id; });
+        if (exists) return;
+        var time = plan.checkTime || '20:00';
+        reminders.push(normalizeReminders([{
+            id: plan.id,
+            title: plan.title || 'Study plan',
+            date: plan.startDate || getTodayISO(),
+            time: time,
+            category: 'Study',
+            priority: 'Medium',
+            note: 'Daily study plan',
+            pinOrder: null,
+            completed: false,
+            repeat: 'daily',
+            createdAt: new Date().toISOString(),
+            targetISO: new Date((plan.startDate || getTodayISO()) + 'T' + time).toISOString(),
+            endDate: addDaysISO(plan.startDate || getTodayISO(), Math.max(1, Number(plan.durationDays) || 60) - 1),
+            studyPlan: {
+                durationDays: plan.durationDays,
+                morningTime: plan.morningTime,
+                checkTime: plan.checkTime,
+                items: plan.items,
+                progress: plan.progress,
+                notified: plan.notified
+            }
+        }])[0]);
+    });
+    localStorage.removeItem(STORAGE_KEYS.studyPlans);
+    saveReminders();
+}
+
+function getStudyPlanTimezone() {
+    var s = getNotificationSettings();
+    return s.timezone || getLocalTimezone();
+}
+
+function getStudyTodayISO() {
+    return getTodayISOInTimezone(getStudyPlanTimezone());
+}
+
+function readReminderStudyPlanItemsFromEditor(editor) {
+    if (!editor) return [];
+    var rows = editor.querySelectorAll('.study-plan-item-row');
+    var items = [];
+    rows.forEach(function (row, index) {
+        var titleEl = row.querySelector('.study-plan-item-title');
+        var minEl = row.querySelector('.study-plan-item-min');
+        var title = titleEl ? String(titleEl.value).trim() : '';
+        if (!title) return;
+        items.push({
+            id: slugStudyItemId(title, index),
+            title: title,
+            minutes: Math.max(1, Number(minEl && minEl.value) || 60)
+        });
+    });
+    return items;
+}
+
+function addReminderStudyItemRow(editor, title, minutes, reminderId) {
+    if (!editor) return;
+    var row = document.createElement('div');
+    row.className = 'study-plan-item-row' + (editor.classList.contains('reminder-study-edit-items') ? ' study-plan-item-row--edit' : '');
+    if (editor.classList.contains('reminder-study-edit-items') && reminderId) {
+        var doneBox = document.createElement('input');
+        doneBox.type = 'checkbox';
+        doneBox.className = 'study-plan-item-done';
+        doneBox.dataset.reminderId = String(reminderId);
+        doneBox.dataset.itemId = slugStudyItemId(title || 'task', editor.querySelectorAll('.study-plan-item-row').length);
+        doneBox.title = 'Done today';
+        doneBox.addEventListener('change', function () {
+            setReminderStudyItemDone(reminderId, doneBox.dataset.itemId, doneBox.checked, getStudyTodayISO());
+        });
+        row.appendChild(doneBox);
+    }
+    var titleInput = document.createElement('input');
+    titleInput.className = 'study-plan-item-title';
+    titleInput.type = 'text';
+    titleInput.placeholder = 'Task name';
+    titleInput.value = title || '';
+    var minInput = document.createElement('input');
+    minInput.className = 'study-plan-item-min';
+    minInput.type = 'number';
+    minInput.min = '1';
+    minInput.max = '480';
+    minInput.value = String(minutes || 60);
+    var minLabel = document.createElement('span');
+    minLabel.className = 'study-plan-item-min-label';
+    minLabel.textContent = 'min';
+    var removeBtn = document.createElement('button');
+    removeBtn.className = 'btn btn-sm study-plan-item-remove';
+    removeBtn.type = 'button';
+    removeBtn.setAttribute('aria-label', 'Remove');
+    removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', function () { row.remove(); });
+    row.appendChild(titleInput);
+    row.appendChild(minInput);
+    row.appendChild(minLabel);
+    row.appendChild(removeBtn);
+    editor.appendChild(row);
+}
+
+function fillReminderStudyPlanEditor(editor, items) {
+    if (!editor) return;
+    editor.innerHTML = '';
+    (items || []).forEach(function (item) {
+        addReminderStudyItemRow(editor, item.title, item.minutes);
+    });
+}
+
+function getStudyPlanStats(plan) {
+    if (!window.MyndlySync) return { dayNum: 1, totalDays: plan.durationDays, todayISO: getTodayISO(), inRange: false, doneToday: 0, totalToday: 0, missedCount: 0 };
+    var today = getStudyTodayISO();
+    var end = MyndlySync.getPlanEndDate(plan);
+    var inRange = MyndlySync.isDateInPlan(plan, today);
+    var dayNum = inRange ? MyndlySync.getPlanDayIndex(plan, today) : 0;
+    var items = plan.items || [];
+    var prog = MyndlySync.getDayProgress(plan, today);
+    var doneToday = items.filter(function (it) { return prog[it.id]; }).length;
+    var missedCount = 0;
+    var cursor = plan.startDate;
+    while (cursor < today && cursor <= end) {
+        if (MyndlySync.isDateInPlan(plan, cursor) && !MyndlySync.isDayFullyComplete(plan, cursor)) missedCount++;
+        cursor = MyndlySync.addDaysISO(cursor, 1);
+    }
+    return {
+        dayNum: dayNum,
+        totalDays: plan.durationDays,
+        todayISO: today,
+        endDate: end,
+        inRange: inRange,
+        doneToday: doneToday,
+        totalToday: items.length,
+        missedCount: missedCount
+    };
+}
+
+function isStudyDayFullyComplete(studyPlan, dayISO) {
+    if (!studyPlan || !dayISO) return false;
+    var items = studyPlan.items || [];
+    if (!items.length) return false;
+    var prog = (studyPlan.progress && studyPlan.progress[dayISO]) || {};
+    return items.every(function (item) { return prog[item.id]; });
+}
+
+function countStudyPlanCompletedDays(reminder) {
+    if (!reminder.studyPlan) return 0;
+    var sp = reminder.studyPlan;
+    var progress = sp.progress || {};
+    var count = 0;
+    Object.keys(progress).forEach(function (dayISO) {
+        if (isStudyDayFullyComplete(sp, dayISO)) count++;
+    });
+    return count;
+}
+
+function getStudyPlanTodayProgress(reminder) {
+    if (!reminder.studyPlan) return { done: 0, total: 0 };
+    var today = getStudyTodayISO();
+    var items = reminder.studyPlan.items || [];
+    var prog = (reminder.studyPlan.progress && reminder.studyPlan.progress[today]) || {};
+    var done = items.filter(function (item) { return prog[item.id]; }).length;
+    return { done: done, total: items.length, today: today };
+}
+
+function formatStudyDaysDoneLabel(count) {
+    if (count === 1) return '1 day done';
+    return count + ' days done';
+}
+
+function renderStudyDaysDoneBadge(reminder, inline) {
+    if (!reminder.studyPlan) return '';
+    var cls = 'study-days-done' + (inline ? ' study-days-done--inline' : '');
+    var n = countStudyPlanCompletedDays(reminder);
+    if (n > 0) {
+        return '<span class="' + cls + '">✓ ' + escapeHTML(formatStudyDaysDoneLabel(n)) + '</span>';
+    }
+    var todayP = getStudyPlanTodayProgress(reminder);
+    if (todayP.total > 0 && todayP.done > 0) {
+        return '<span class="' + cls + ' study-days-done--partial">Today ' + todayP.done + '/' + todayP.total + '</span>';
+    }
+    return '';
+}
+
+function studyDaysDoneMetaHtml(reminder) {
+    return renderStudyDaysDoneBadge(reminder, false);
+}
+
+function studyPlanCardCheckboxAttrs(reminderId, itemId, dayISO, checked) {
+    var attrs = ' type="checkbox" data-reminder-id="' + reminderId + '" data-item-id="' + escapeHTML(itemId) + '" data-day-iso="' + escapeHTML(dayISO) + '"';
+    if (checked) attrs += ' checked disabled';
+    return attrs;
+}
+
+function setReminderStudyItemDone(reminderId, itemId, done, dateISO) {
+    var reminder = reminders.find(function (r) { return r.id === reminderId; });
+    if (!reminder || !reminder.studyPlan) return;
+    var day = dateISO || getStudyTodayISO();
+    if (!reminder.studyPlan.progress) reminder.studyPlan.progress = {};
+    if (!reminder.studyPlan.progress[day]) reminder.studyPlan.progress[day] = {};
+    if (done) reminder.studyPlan.progress[day][itemId] = true;
+    else delete reminder.studyPlan.progress[day][itemId];
+    saveReminders();
+    renderReminderLists();
+}
+
+function renderReminderStudyPlanBlock(reminder) {
+    if (!reminder.studyPlan) return '';
+    var plan = reminderToStudyPlan(reminder);
+    var stats = getStudyPlanStats(plan);
+    var sp = reminder.studyPlan;
+    var items = sp.items || [];
+    var editing = reminderStudyEditId === reminder.id;
+
+    if (editing) {
+        var todayISO = stats.todayISO;
+        var progEdit = window.MyndlySync ? MyndlySync.getDayProgress(plan, todayISO) : {};
+        var itemsRows = items.map(function (item) {
+            var checked = !!progEdit[item.id];
+            return '<div class="study-plan-item-row study-plan-item-row--edit">' +
+                '<input type="checkbox" class="study-plan-item-done" data-reminder-id="' + reminder.id + '" data-item-id="' + escapeHTML(item.id) + '" ' + (checked ? 'checked' : '') + ' title="Done today" />' +
+                '<input class="study-plan-item-title" type="text" value="' + escapeHTML(item.title) + '" />' +
+                '<input class="study-plan-item-min" type="number" min="1" max="480" value="' + item.minutes + '" />' +
+                '<span class="study-plan-item-min-label">min</span>' +
+                '<button class="btn btn-sm study-plan-item-remove" type="button" data-remove-row="1">×</button></div>';
+        }).join('');
+        return '<div class="reminder-study-block reminder-study-block--edit" data-reminder-id="' + reminder.id + '">' +
+            '<p class="reminder-study-label">📚 Edit daily plan</p>' +
+            '<div class="reminder-study-edit-grid">' +
+            '<div class="reminder-study-field"><span class="reminder-study-field-label">End date</span>' +
+            '<input type="date" class="reminder-study-end" value="' + escapeHTML(getReminderEndDate(reminder)) + '" /></div>' +
+            '<div class="reminder-study-field"><span class="reminder-study-field-label">Morning</span>' +
+            '<input type="time" class="reminder-study-morning" value="' + escapeHTML(sp.morningTime) + '" /></div>' +
+            '<div class="reminder-study-field"><span class="reminder-study-field-label">Evening</span>' +
+            '<input type="time" class="reminder-study-evening" value="' + escapeHTML(sp.checkTime) + '" /></div>' +
+            '</div>' +
+            '<p class="helper reminder-study-edit-hint">☑️ = আজকের কাজ সম্পন্ন · নাম/সময় এডিট করুন</p>' +
+            '<div class="reminder-study-edit-items study-plan-items-editor">' + itemsRows +
+            '<button class="btn btn-sm reminder-study-add-row" type="button">+ Add task</button></div>' +
+            '<div class="reminder-study-edit-actions">' +
+            '<button class="btn btn-primary btn-sm" type="button" onclick="saveReminderStudyPlanEdit(' + reminder.id + ')">Save</button>' +
+            '<button class="btn btn-ghost btn-sm" type="button" onclick="cancelReminderStudyPlanEdit()">Cancel</button>' +
+            '</div></div>';
+    }
+
+    var todayISO = getStudyTodayISO();
+    var prog = (sp.progress && sp.progress[todayISO]) || {};
+
+    if (!stats.inRange) {
+        var beforeStart = stats.todayISO < plan.startDate;
+        var status = beforeStart ? 'Starts ' + formatDate(plan.startDate) : 'Plan ended';
+        var daysDoneHtml = renderStudyDaysDoneBadge(reminder, true);
+        var checklistEarly = '';
+        if (beforeStart && items.length) {
+            checklistEarly = '<div class="study-plan-checklist">' + items.map(function (item) {
+                var checked = !!prog[item.id];
+                return '<label class="study-plan-check reminder-study-check' + (checked ? ' reminder-study-check--done' : '') + '">' +
+                    '<input' + studyPlanCardCheckboxAttrs(reminder.id, item.id, todayISO, checked) + ' />' +
+                    '<span>' + escapeHTML(item.title) + ' <em>(' + item.minutes + ' min)</em></span></label>';
+            }).join('') + '</div>';
+        }
+        return '<div class="reminder-study-block">' +
+            '<div class="reminder-study-head">' +
+            '<span class="study-plan-badge">📚 ' + sp.durationDays + ' days</span> ' +
+            daysDoneHtml +
+            '<button class="btn btn-ghost btn-sm" type="button" onclick="toggleReminderStudyEdit(' + reminder.id + ')">Edit plan</button>' +
+            '</div>' +
+            '<p class="helper">' + status + (beforeStart ? ' — tick tasks below to track progress' : '') + '</p>' +
+            checklistEarly +
+            '</div>';
+    }
+
+    prog = window.MyndlySync ? MyndlySync.getDayProgress(plan, stats.todayISO) : prog;
+    var pct = items.length ? Math.round((stats.doneToday / items.length) * 100) : 0;
+    var dayNotes = sp.dayNotes || {};
+    var todayNotes = dayNotes[stats.todayISO] || {};
+    var checklist = items.map(function (item) {
+        var checked = !!prog[item.id];
+        var noteVal = todayNotes[item.id] || '';
+        return '<div class="sp-check-row">' +
+            '<label class="study-plan-check reminder-study-check' + (checked ? ' reminder-study-check--done' : '') + '">' +
+            '<input' + studyPlanCardCheckboxAttrs(reminder.id, item.id, todayISO, checked) + ' />' +
+            '<span>' + escapeHTML(item.title) + ' <em>(' + item.minutes + ' min)</em></span>' +
+            '</label>' +
+            '<input class="sp-note-input" type="text" placeholder="Add note..." value="' + escapeHTML(noteVal) + '" ' +
+            'data-reminder-id="' + reminder.id + '" data-item-id="' + escapeHTML(item.id) + '" data-day-iso="' + escapeHTML(stats.todayISO) + '" />' +
+            '</div>';
+    }).join('');
+    var missedHtml = stats.missedCount > 0
+        ? '<p class="study-plan-missed">⚠️ ' + stats.missedCount + ' day(s) missed</p>'
+        : '';
+    var daysDoneHead = renderStudyDaysDoneBadge(reminder, true);
+    var logSection = reminderStudyLogId === reminder.id ? renderStudyDayLog(reminder) : '';
+
+    return '<div class="reminder-study-block">' +
+        '<div class="reminder-study-head">' +
+        '<span class="study-plan-badge">📚 Day ' + stats.dayNum + '/' + stats.totalDays + ' · ' + pct + '%</span>' +
+        daysDoneHead +
+        '<div class="sp-head-btns">' +
+        '<button class="btn btn-ghost btn-sm" type="button" onclick="toggleStudyLog(' + reminder.id + ')">' + (reminderStudyLogId === reminder.id ? '📔 Hide' : '📔 Log') + '</button>' +
+        '<button class="btn btn-ghost btn-sm" type="button" onclick="toggleReminderStudyEdit(' + reminder.id + ')">Edit plan</button>' +
+        '</div>' +
+        '</div>' +
+        '<div class="study-plan-checklist">' + checklist + '</div>' +
+        missedHtml +
+        '<p class="helper reminder-study-times">⏰ ' + escapeHTML(sp.morningTime) + ' & ' + escapeHTML(sp.checkTime) + '</p>' +
+        logSection +
+        '</div>';
+}
+
+function attachReminderStudyPlanHandlers() {
+    document.querySelectorAll('.reminder-study-check input').forEach(function (input) {
+        input.addEventListener('change', function () {
+            if (!input.checked) {
+                input.checked = true;
+                return;
+            }
+            var dayISO = input.dataset.dayIso || getStudyTodayISO();
+            setReminderStudyItemDone(Number(input.dataset.reminderId), input.dataset.itemId, true, dayISO);
+        });
+    });
+    document.querySelectorAll('.study-plan-item-done').forEach(function (input) {
+        input.addEventListener('change', function () {
+            var dayISO = input.dataset.dayIso || getStudyTodayISO();
+            setReminderStudyItemDone(Number(input.dataset.reminderId), input.dataset.itemId, input.checked, dayISO);
+        });
+    });
+    document.querySelectorAll('.reminder-study-add-row').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var wrap = btn.closest('.reminder-study-edit-items');
+            var block = btn.closest('.reminder-study-block--edit');
+            var rid = block ? Number(block.dataset.reminderId) : null;
+            if (wrap) addReminderStudyItemRow(wrap, '', 60, rid);
+        });
+    });
+    document.querySelectorAll('[data-remove-row]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var row = btn.closest('.study-plan-item-row');
+            if (row) row.remove();
+        });
+    });
+    document.querySelectorAll('.sp-note-input').forEach(function (input) {
+        input.addEventListener('blur', function () {
+            setStudyItemNote(Number(input.dataset.reminderId), input.dataset.itemId, input.dataset.dayIso, input.value);
+        });
+    });
+}
+
+function toggleReminderStudyEdit(reminderId) {
+    reminderStudyEditId = reminderStudyEditId === reminderId ? null : reminderId;
+    renderReminderLists();
+}
+
+function cancelReminderStudyPlanEdit() {
+    reminderStudyEditId = null;
+    renderReminderLists();
+}
+
+function setStudyItemNote(reminderId, itemId, dayISO, text) {
+    var reminder = reminders.find(function (r) { return r.id === reminderId; });
+    if (!reminder || !reminder.studyPlan) return;
+    if (!reminder.studyPlan.dayNotes) reminder.studyPlan.dayNotes = {};
+    if (!reminder.studyPlan.dayNotes[dayISO]) reminder.studyPlan.dayNotes[dayISO] = {};
+    var trimmed = String(text || '').trim();
+    if (trimmed) {
+        reminder.studyPlan.dayNotes[dayISO][itemId] = trimmed;
+    } else {
+        delete reminder.studyPlan.dayNotes[dayISO][itemId];
+        if (!Object.keys(reminder.studyPlan.dayNotes[dayISO]).length) {
+            delete reminder.studyPlan.dayNotes[dayISO];
+        }
+    }
+    saveReminders();
+}
+
+function toggleStudyLog(reminderId) {
+    reminderStudyLogId = reminderStudyLogId === reminderId ? null : reminderId;
+    renderReminderLists();
+}
+
+function renderStudyDayLog(reminder) {
+    var sp = reminder.studyPlan;
+    var dayNotes = sp.dayNotes || {};
+    var items = sp.items || [];
+    var plan = reminderToStudyPlan(reminder);
+    var days = Object.keys(dayNotes).sort().reverse();
+    if (!days.length) return '<p class="sp-log-empty">No notes added yet.</p>';
+    var rows = days.map(function (dayISO) {
+        var notes = dayNotes[dayISO];
+        var dayIdx = window.MyndlySync ? MyndlySync.getPlanDayIndex(plan, dayISO) : '?';
+        var entries = items.filter(function (item) { return notes[item.id]; }).map(function (item) {
+            return '<div class="sp-log-entry"><span class="sp-log-item-name">' + escapeHTML(item.title) + '</span><span class="sp-log-entry-text">' + escapeHTML(notes[item.id]) + '</span></div>';
+        }).join('');
+        if (!entries) return '';
+        return '<div class="sp-log-day"><div class="sp-log-day-header">Day ' + dayIdx + ' &nbsp;·&nbsp; ' + formatDate(dayISO) + '</div><div class="sp-log-entries">' + entries + '</div></div>';
+    }).filter(Boolean).join('');
+    return '<div class="sp-log-section">' + (rows || '<p class="sp-log-empty">No notes added yet.</p>') + '</div>';
+}
+
+function saveReminderStudyPlanEdit(reminderId) {
+    var reminder = reminders.find(function (r) { return r.id === reminderId; });
+    var block = document.querySelector('.reminder-study-block--edit[data-reminder-id="' + reminderId + '"]');
+    if (!reminder || !reminder.studyPlan || !block) return;
+    var itemsEditor = block.querySelector('.reminder-study-edit-items');
+    var items = readReminderStudyPlanItemsFromEditor(itemsEditor);
+    if (!items.length) {
+        alert('Keep at least one daily task.');
+        return;
+    }
+    var endEl = block.querySelector('.reminder-study-end');
+    var morningEl = block.querySelector('.reminder-study-morning');
+    var checkEl = block.querySelector('.reminder-study-evening') || block.querySelector('.reminder-study-check');
+    var progress = reminder.studyPlan.progress;
+    var notified = reminder.studyPlan.notified;
+    var dayNotes = reminder.studyPlan.dayNotes || {};
+    if (endEl && endEl.value && endEl.value < reminder.date) {
+        alert('End date must be on or after Start date.');
+        return;
+    }
+    if (endEl && endEl.value) reminder.endDate = endEl.value;
+    reminder.studyPlan = normalizeReminderStudyPlanData({
+        durationDays: daysBetweenInclusive(reminder.date, getReminderEndDate(reminder)),
+        morningTime: morningEl ? morningEl.value : '08:00',
+        checkTime: checkEl ? checkEl.value : '20:00',
+        items: items,
+        progress: progress,
+        notified: notified,
+        dayNotes: dayNotes
+    });
+    syncStudyPlanDurationFromDates(reminder);
+    reminderStudyEditId = null;
+    saveReminders();
+    renderReminderLists();
+}
+
+function maybeNotifyStudyPlans() {
+    if (!window.MyndlySync) return;
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    var plans = getStudyPlansFromReminders();
+    if (!plans.length) return;
+    var tz = getStudyPlanTimezone();
+    var result = MyndlySync.processStudyPlanNotifications(plans, new Date(), tz, function (hit) {
+        try {
+            new Notification(hit.title, {
+                body: hit.body,
+                tag: 'myndly-plan-' + hit.plan.id + '-' + hit.key
+            });
+        } catch (e) { /* ignore */ }
+        playSoftPing();
+        appendNotificationLog({ channel: 'browser', title: hit.title, body: hit.body });
+    });
+    if (result.changed) {
+        applyStudyPlanUpdatesToReminders(result.plans);
+        saveReminders();
+        renderReminderLists();
+    }
+}
+
+function resetReminderStudyPlanForm() {
+    var editor = document.getElementById('reminderStudyPlanItemsEditor');
+    if (editor) fillReminderStudyPlanEditor(editor, IELTS_STUDY_TEMPLATE);
+    var days = document.getElementById('reminderStudyDays');
+    if (days) days.value = '60';
+}
+
+function initReminderStudyPlanForm() {
+    var editor = document.getElementById('reminderStudyPlanItemsEditor');
+    var addBtn = document.getElementById('reminderStudyAddItemBtn');
+    var ieltsBtn = document.getElementById('reminderStudyIeltsBtn');
+    var modalEl = document.getElementById('dailyPlanModal');
+    var continueBtn = document.getElementById('dailyPlanContinueBtn');
+    var confirmBtn = document.getElementById('dailyPlanConfirmBtn');
+    var backBtn = document.getElementById('dailyPlanBackBtn');
+    var closeBtn = document.getElementById('dailyPlanModalClose');
+
+    if (editor) fillReminderStudyPlanEditor(editor, IELTS_STUDY_TEMPLATE);
+    if (addBtn && editor) {
+        addBtn.addEventListener('click', function () { addReminderStudyItemRow(editor, '', 60); });
+    }
+    if (ieltsBtn) {
+        ieltsBtn.addEventListener('click', function () {
+            var startEl = document.getElementById('date');
+            var endEl = document.getElementById('endDate');
+            if (startEl && startEl.value && endEl) {
+                endEl.value = addDaysISO(startEl.value, 59);
+                if (pendingReminderFormData) pendingReminderFormData.endDate = endEl.value;
+            }
+            if (editor) fillReminderStudyPlanEditor(editor, IELTS_STUDY_TEMPLATE);
+            updateDailyPlanDurationSummary();
+        });
+    }
+    var dateEl = document.getElementById('date');
+    var endDateEl = document.getElementById('endDate');
+    if (dateEl) {
+        dateEl.addEventListener('change', function () {
+            suggestDefaultEndDate();
+            if (pendingReminderFormData) {
+                pendingReminderFormData.date = dateEl.value;
+                pendingReminderFormData.endDate = endDateEl ? endDateEl.value : '';
+            }
+            updateDailyPlanDurationSummary();
+        });
+    }
+    if (endDateEl) {
+        endDateEl.addEventListener('change', function () {
+            if (pendingReminderFormData) pendingReminderFormData.endDate = endDateEl.value;
+            updateDailyPlanDurationSummary();
+        });
+    }
+    if (continueBtn) {
+        continueBtn.addEventListener('click', function () {
+            if (!pendingReminderFormData) return;
+            if (getDailyPlanChoice() === 'yes') {
+                refreshPendingReminderDatesFromForm();
+                if (!pendingReminderFormData.date || !pendingReminderFormData.endDate) {
+                    alert('Set Start date and End date on the reminder form first.');
+                    return;
+                }
+                if (pendingReminderFormData.endDate < pendingReminderFormData.date) {
+                    alert('End date must be on or after Start date.');
+                    return;
+                }
+                showDailyPlanFieldsStep();
+                return;
+            }
+            finalizeReminderCreate(pendingReminderFormData, false);
+        });
+    }
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', function () {
+            if (!pendingReminderFormData) return;
+            if (pendingReminderFormData.endDate < pendingReminderFormData.date) {
+                alert('End date must be on or after Start date.');
+                return;
+            }
+            finalizeReminderCreate(pendingReminderFormData, true);
+        });
+    }
+    if (backBtn) {
+        backBtn.addEventListener('click', showDailyPlanAskStep);
+    }
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeDailyPlanModal);
+    }
+    if (modalEl) {
+        modalEl.addEventListener('click', function (e) {
+            if (e.target === modalEl) closeDailyPlanModal();
+        });
+    }
+}
+
+/* ════════════════════════════════════════
    Feature 2: Due Date color class helper
 ════════════════════════════════════════ */
 function getTodoDueDateClass(todo) {
@@ -1549,7 +2359,7 @@ function getTodoDueDateClass(todo) {
 function renderReminderCard(reminder) {
     const countdown = getCountdownParts(reminder.targetISO);
     const countdownHTML = countdown.expired
-        ? '<div class="unit"><strong>Done</strong><span>Status</span></div>'
+        ? ''
         : '<div class="unit"><strong>' + countdown.days + '</strong><span>Days</span></div>' +
         '<div class="unit"><strong>' + countdown.hours + '</strong><span>Hours</span></div>' +
         '<div class="unit"><strong>' + countdown.minutes + '</strong><span>Min</span></div>' +
@@ -1560,23 +2370,35 @@ function renderReminderCard(reminder) {
     var repeatBadge = (reminder.repeat && reminder.repeat !== 'none')
         ? '<span class="repeat-badge">🔁 ' + escapeHTML(reminder.repeat) + '</span>'
         : '';
+    var studyBadge = reminder.studyPlan
+        ? '<span class="study-plan-badge study-plan-badge--inline">📚 ' + reminder.studyPlan.durationDays + 'd plan</span>'
+        : '';
+    var studyBlock = renderReminderStudyPlanBlock(reminder);
     // Feature 6: done button
     var isDone = Boolean(reminder.completed);
     var doneBtn = '<button class="reminder-done-btn ' + (isDone ? 'done' : '') + '" type="button" onclick="toggleReminderComplete(' + reminder.id + ')">' + (isDone ? '✓ Done' : '✓ Mark Done') + '</button>';
     var completedClass = isDone ? ' reminder--completed' : '';
+    var priorityBadgeHtml = '<span class="badge reminder-priority-badge">' + priorityBadge(reminder.priority) + '</span>';
+    var badgesRow = '<div class="reminder-badges-row">' + repeatBadge + studyBadge + pinHtml + priorityBadgeHtml + '</div>';
+    var noteHtml = reminder.note
+        ? '<p class="reminder-note">' + escapeHTML(reminder.note) + '</p>'
+        : '';
     return '<div class="swipe-wrapper" data-id="' + reminder.id + '" data-type="reminder">' +
         '<div class="swipe-delete-reveal">🗑 Delete</div>' +
         '<div class="swipe-content reminder-card' + completedClass + '" data-reminder-id="' + reminder.id + '" data-target-iso="' + escapeHTML(reminder.targetISO) + '">' +
-        '<div>' +
-        '<div class="reminder-top">' +
-        '<div><h3>' + escapeHTML(reminder.title) + '</h3><p>' + escapeHTML(reminder.note || 'No note added yet.') + '</p></div>' +
-        '<div class="icon-btns reminder-pin-wrap">' + pinHtml + repeatBadge + '<div class="badge">' + priorityBadge(reminder.priority) + '</div></div>' +
-        '</div>' +
+        '<div class="reminder-main">' +
+        '<h3>' + escapeHTML(reminder.title) + '</h3>' +
+        badgesRow +
+        noteHtml +
+        studyBlock +
         '<div class="reminder-footer">' +
         '<div class="reminder-meta">' +
-        '<span>📅 ' + formatDate(reminder.date) + '</span>' +
+        '<span>📅 ' + formatDate(reminder.date) + (reminder.studyPlan && getReminderEndDate(reminder) !== reminder.date
+            ? ' → ' + formatDate(getReminderEndDate(reminder)) : '') + '</span>' +
         '<span>🕒 ' + to12Hour(reminder.time) + '</span>' +
+        (reminder.studyPlan ? '<span>📆 ' + reminder.studyPlan.durationDays + ' days</span>' : '') +
         '<span>🏷 ' + escapeHTML(reminder.category) + '</span>' +
+        studyDaysDoneMetaHtml(reminder) +
         '</div>' +
         '<div class="icon-btns">' +
         doneBtn +
@@ -1592,7 +2414,7 @@ function renderReminderCard(reminder) {
 
 function buildCountdownHTML(targetISO) {
     const countdown = getCountdownParts(targetISO);
-    if (countdown.expired) return '<div class="unit"><strong>Done</strong><span>Status</span></div>';
+    if (countdown.expired) return '';
     return '<div class="unit"><strong>' + countdown.days + '</strong><span>Days</span></div>' +
         '<div class="unit"><strong>' + countdown.hours + '</strong><span>Hours</span></div>' +
         '<div class="unit"><strong>' + countdown.minutes + '</strong><span>Min</span></div>' +
@@ -1620,7 +2442,6 @@ function emptyStateHTML(icon, title, sub) {
 
 function renderReminderLists() {
     sortReminders();
-    // Feature 6: filter based on showCompletedReminders
     var displayReminders = showCompletedReminders
         ? reminders
         : reminders.filter(function(r) { return !r.completed; });
@@ -1631,8 +2452,15 @@ function renderReminderLists() {
     allReminderList.innerHTML = reminders.length === 0
         ? emptyStateHTML('🔔', 'No reminders saved', 'Create a reminder using the form on the left.')
         : reminders.map(renderReminderCard).join('');
-    // Re-attach swipe listeners after render
+    var subtitle = document.getElementById('upcomingReminderSubtitle');
+    if (subtitle) {
+        var total = displayReminders.length;
+        subtitle.textContent = total === 0
+            ? 'No active reminders'
+            : 'Showing ' + Math.min(5, total) + (total > 5 ? ' of ' + total : total === 1 ? ' reminder' : ' reminders');
+    }
     attachSwipeListeners();
+    attachReminderStudyPlanHandlers();
 }
 
 /* ════════════════════════════════════════
@@ -2631,6 +3459,9 @@ function registerServiceWorker() {
         if (event.data.type === 'TODOS_NOTIFIED') {
             mergeTodosFromServiceWorker(event.data.todos);
         }
+        if (event.data.type === 'PLANS_NOTIFIED') {
+            mergeStudyPlansFromServiceWorker(event.data.studyPlans);
+        }
         if (event.data.type === 'SW_UPDATED') {
             // SW activated and claimed this client — reload for fresh files
             if (!document._swReloading) {
@@ -3548,6 +4379,9 @@ window.setTheme = setTheme;
 window.toggleDarkMode = toggleDarkMode;
 window.quickSetPin = quickSetPin;
 window.toggleReminderComplete = toggleReminderComplete;
+window.toggleReminderStudyEdit = toggleReminderStudyEdit;
+window.saveReminderStudyPlanEdit = saveReminderStudyPlanEdit;
+window.cancelReminderStudyPlanEdit = cancelReminderStudyPlanEdit;
 window.toggleSubtask = toggleSubtask;
 window.addSubtaskFromInput = addSubtaskFromInput;
 window.renderTodayPanel = renderTodayPanel;
@@ -3558,7 +4392,12 @@ window.openNoteEditor = openNoteEditor;
    Init
 ════════════════════════════════════════ */
 if (todoDateInput) todoDateInput.value = getTodayISO();
+var reminderDateInput = document.getElementById('date');
+var reminderEndDateInput = document.getElementById('endDate');
+if (reminderDateInput) reminderDateInput.value = getTodayISO();
+if (reminderEndDateInput) reminderEndDateInput.value = addDaysISO(getTodayISO(), 59);
 loadCustomCategories();
+migrateLegacyStudyPlans();
 sortReminders();
 sortDailyTasks();
 applySavedTheme();
@@ -3570,6 +4409,7 @@ updateShowCompletedBtn();
 renderAll();
 refreshReminderCountdowns();
 maybeNotifyTodos();
+maybeNotifyStudyPlans();
 checkDailyDigest();
 updatePomodoroDisplay();
 initAmbientButtons();
@@ -3577,6 +4417,7 @@ registerServiceWorker();
 initInstallPrompt();
 initOfflineStatus();
 initTodoAlertBanner();
+initReminderStudyPlanForm();
 initWordGame();
 initMathGame();
 initNotes();
@@ -3584,10 +4425,12 @@ pushStateToOfflineStore();
 document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') {
         maybeNotifyTodos();
+        maybeNotifyStudyPlans();
         pushStateToOfflineStore();
     }
 });
 setInterval(refreshReminderCountdowns, 1000);
 setInterval(maybeNotifyTodos, 15000);
+setInterval(maybeNotifyStudyPlans, 60000);
 setInterval(checkDailyDigest, 60000);
 runAppTests();

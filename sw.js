@@ -1,6 +1,6 @@
 importScripts('./sync-store.js');
 
-const CACHE_NAME = 'myndly-offline-v6';
+const CACHE_NAME = 'myndly-offline-v9';
 const APP_SHELL = ['./', './index.html', './styles.css', './app.js', './sync-store.js', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 const TODO_CHECK_MS = 30000;
 // These files always try network first so updates show immediately
@@ -61,12 +61,12 @@ function showTodoNotification(todo) {
 
 function runTodoNotificationCheck() {
     return MyndlySync.readAppState().then(function (state) {
-        if (!state || !Array.isArray(state.todos) || !state.todos.length) return;
+        if (!state || !Array.isArray(state.todos) || !state.todos.length) return state;
         var now = new Date();
         var result = MyndlySync.processTodoNotifications(state.todos, now, function (todo) {
             showTodoNotification(todo);
         });
-        if (!result.changed) return;
+        if (!result.changed) return state;
         state.todos = result.todos;
         state.updatedAt = Date.now();
         return MyndlySync.writeAppState(state).then(function () {
@@ -75,16 +75,53 @@ function runTodoNotificationCheck() {
                     client.postMessage({ type: 'TODOS_NOTIFIED', todos: result.todos });
                 });
             });
-        });
+        }).then(function () { return state; });
     }).catch(function (err) {
         console.warn('SW todo check failed', err);
+    });
+}
+
+function showStudyPlanNotification(hit) {
+    return self.registration.showNotification(hit.title, {
+        body: hit.body,
+        tag: 'myndly-plan-' + hit.plan.id + '-' + hit.key,
+        renotify: true,
+        data: { type: 'study-plan', id: hit.plan.id, url: './index.html' }
+    });
+}
+
+function runStudyPlanNotificationCheck() {
+    return MyndlySync.readAppState().then(function (state) {
+        if (!state || !Array.isArray(state.studyPlans) || !state.studyPlans.length) return;
+        var tz = (state.notificationSettings && state.notificationSettings.timezone) || 'UTC';
+        var result = MyndlySync.processStudyPlanNotifications(state.studyPlans, new Date(), tz, function (hit) {
+            showStudyPlanNotification(hit);
+        });
+        if (!result.changed) return;
+        state.studyPlans = result.plans;
+        state.updatedAt = Date.now();
+        return MyndlySync.writeAppState(state).then(function () {
+            return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clients) {
+                clients.forEach(function (client) {
+                    client.postMessage({ type: 'PLANS_NOTIFIED', studyPlans: result.plans });
+                });
+            });
+        });
+    }).catch(function (err) {
+        console.warn('SW study plan check failed', err);
+    });
+}
+
+function runAllNotificationChecks() {
+    return runTodoNotificationCheck().then(function () {
+        return runStudyPlanNotificationCheck();
     });
 }
 
 function scheduleTodoCheckLoop() {
     if (todoCheckTimer) clearTimeout(todoCheckTimer);
     todoCheckTimer = setTimeout(function () {
-        runTodoNotificationCheck().finally(scheduleTodoCheckLoop);
+        runAllNotificationChecks().finally(scheduleTodoCheckLoop);
     }, TODO_CHECK_MS);
 }
 
@@ -115,7 +152,7 @@ self.addEventListener('activate', function (event) {
             });
         }).then(function () {
             scheduleTodoCheckLoop();
-            return runTodoNotificationCheck();
+            return runAllNotificationChecks();
         })
     );
 });
@@ -138,7 +175,7 @@ self.addEventListener('message', function (event) {
         return;
     }
     if (event.data.type === 'STATE_UPDATED' || event.data.type === 'CHECK_TODOS_NOW') {
-        runTodoNotificationCheck();
+        runAllNotificationChecks();
     }
 });
 
