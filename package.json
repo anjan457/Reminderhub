@@ -6,7 +6,15 @@
   "private": true,
   "scripts": {
     "start": "electron .",
+    "server": "node server/index.js",
+    "dev:server": "node --watch server/index.js",
     "dist:mac": "electron-builder --mac"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongoose": "^8.9.3"
   },
   "devDependencies": {
     "electron": "^31.7.7",
