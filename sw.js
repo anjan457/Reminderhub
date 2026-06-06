@@ -16,6 +16,7 @@ function isNetworkFirst(url) {
 function networkFirst(request) {
     return fetch(request).then(function(response) {
         if (response.ok) {
+            console.log('Network first', request.url);
             var clone = response.clone();
             caches.open(CACHE_NAME).then(function(cache) { cache.put(request, clone); });
         }
