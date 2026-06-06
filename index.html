@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Myndly</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='2' y='2' width='60' height='60' rx='18' fill='%236366f1'/><path d='M14 46 L14 22 L32 38 L50 22 L50 46' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='2' y='2' width='60' height='60' rx='18' fill='%236366f1'/><path d='M13 45 L13 21 L31 37 L49 21 L49 45' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round' fill='none'/><circle cx='49' cy='48' r='12' fill='%2310b981' stroke='%236366f1' stroke-width='2.5'/><path d='M44 48 L47.5 51.5 L54 44.5' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="manifest" href="manifest.json" />
     <link rel="apple-touch-icon" href="icons/icon-192.png" />
@@ -68,33 +68,56 @@
                     <!-- Animated Logo -->
                     <div class="myndly-logo" aria-label="Myndly logo">
                         <svg class="logo-svg" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <defs>
-                                <linearGradient id="logoGrad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-                                    <stop offset="0%" stop-color="#6366f1"/>
-                                    <stop offset="100%" stop-color="#a855f7"/>
-                                </linearGradient>
-                                <filter id="logoGlow">
-                                    <feGaussianBlur stdDeviation="2" result="blur"/>
-                                    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                                </filter>
-                            </defs>
-                            <!-- Background squircle -->
-                            <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#logoGrad)" class="logo-bg"/>
-                            <!-- Pulse ring -->
-                            <rect x="2" y="2" width="60" height="60" rx="18" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2" class="logo-pulse"/>
-                            <!-- M letterform — draws itself -->
-                            <path class="logo-m" d="M14 46 L14 22 L32 38 L50 22 L50 46"
-                                stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                            <!-- Orbiting glow dot -->
-                            <circle cx="32" cy="4" r="3.5" fill="white" filter="url(#logoGlow)" opacity="0.95">
-                                <animateTransform attributeName="transform" type="rotate"
-                                    from="0 32 32" to="360 32 32" dur="5s" repeatCount="indefinite"/>
-                            </circle>
-                            <!-- Second orbiting dot, opposite phase -->
-                            <circle cx="32" cy="60" r="2.5" fill="rgba(255,255,255,0.55)">
-                                <animateTransform attributeName="transform" type="rotate"
-                                    from="180 32 32" to="540 32 32" dur="5s" repeatCount="indefinite"/>
-                            </circle>
+                          <defs>
+                            <linearGradient id="myndlyBg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                              <stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#a855f7"/>
+                            </linearGradient>
+                            <linearGradient id="myndlyM" x1="16" y1="30" x2="41" y2="47" gradientUnits="userSpaceOnUse">
+                              <stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#a855f7"/>
+                            </linearGradient>
+                            <linearGradient id="myndlyBadge" x1="40" y1="40" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+                              <stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#10b981"/>
+                            </linearGradient>
+                            <style>
+                              .myndly-anim-content { animation: myndlyLoop 5s linear infinite; }
+                              .myndly-anim-m { stroke-dasharray: 70; animation: myndlyDraw 5s linear infinite; }
+                              .myndly-anim-pencil { animation: myndlyPMove 5s linear infinite, myndlyPFade 5s linear infinite; }
+                              .myndly-anim-check { transform-box: fill-box; transform-origin: center; animation: myndlyPop 5s ease-out infinite; }
+                              @keyframes myndlyLoop { 0%{opacity:0} 4%{opacity:1} 94%{opacity:1} 100%{opacity:0} }
+                              @keyframes myndlyDraw { 0%,6%{stroke-dashoffset:70} 37%{stroke-dashoffset:0} 100%{stroke-dashoffset:0} }
+                              @keyframes myndlyPop { 0%,40%{transform:scale(0)} 48%{transform:scale(1.18)} 54%{transform:scale(1)} 100%{transform:scale(1)} }
+                              @keyframes myndlyPFade { 0%{opacity:0} 6%{opacity:1} 100%{opacity:1} }
+                              @keyframes myndlyPMove {
+                                0%,6%{transform:translate(16px,47px)} 13%{transform:translate(16px,30px)}
+                                21%{transform:translate(28.5px,40px)} 29%{transform:translate(41px,30px)}
+                                37%{transform:translate(41px,47px)} 47%,100%{transform:translate(29px,27px)}
+                              }
+                              @media (prefers-reduced-motion: reduce) {
+                                .myndly-anim-content { animation:none; opacity:1; }
+                                .myndly-anim-m { animation:none; stroke-dashoffset:0; }
+                                .myndly-anim-check { animation:none; transform:scale(1); }
+                                .myndly-anim-pencil { animation:none; opacity:1; transform:translate(29px,27px); }
+                              }
+                            </style>
+                          </defs>
+                          <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#myndlyBg)"/>
+                          <rect x="11" y="11" width="35" height="42" rx="5" fill="#ffffff"/>
+                          <g class="myndly-anim-content">
+                            <path class="myndly-anim-m" d="M16 47 L16 30 L28.5 40 L41 30 L41 47" stroke="url(#myndlyM)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            <g class="myndly-anim-check">
+                              <circle cx="50" cy="50" r="10" fill="url(#myndlyBadge)" stroke="#6f4ff0" stroke-width="2.5"/>
+                              <path d="M45.8 50 L48.6 52.8 L54.2 46.5" stroke="white" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </g>
+                            <g class="myndly-anim-pencil">
+                              <g transform="rotate(-32)">
+                                <rect x="-2" y="-29" width="4" height="4" rx="1.8" fill="#f472b6"/>
+                                <rect x="-2" y="-25" width="4" height="2" fill="#d1d5db"/>
+                                <rect x="-2" y="-23" width="4" height="17.5" rx="1.4" fill="#fbbf24"/>
+                                <path d="M-2 -5.5 L2 -5.5 L0 0 Z" fill="#f59e0b"/>
+                                <path d="M-1.1 -3 L1.1 -3 L0 0 Z" fill="#3b2a12"/>
+                              </g>
+                            </g>
+                          </g>
                         </svg>
                     </div>
                     <div class="myndly-wordmark">
@@ -151,7 +174,7 @@
                             <div class="form-group">
                                 <label for="endDate">End date <span class="label-optional">(optional)</span></label>
                                 <input id="endDate" type="date" />
-                                <p class="helper study-plan-hint">Study plan-এর জন্য: start → end থেকে দিন অটো।</p>
+                                <p class="helper study-plan-hint">For study plans: day count is calculated automatically from start to end date.</p>
                             </div>
                             <div class="form-group">
                                 <label for="time">Time <span class="label-optional">(optional)</span></label>
@@ -207,12 +230,12 @@
                     <div class="panel-header">
                         <div class="panel-title">
                             <h3>Todo List</h3>
-                            <p class="helper">সময় দিলে নির্বাচিত তারিখে সেই সময়ের আগে অ্যালার্ট (অফলাইনেও কাজ করে)।</p>
+                            <p class="helper">If you set a time, you get an alert before that time on the selected date (works offline too).</p>
                         </div>
                     </div>
 
                     <div class="todo-alert-banner" id="todoAlertBanner" hidden>
-                        <span>Todo সময় অনুযায়ী নোটিফিকেশন পেতে অনুমতি দিন।</span>
+                        <span>Allow notifications for todos at their scheduled times.</span>
                         <button class="btn btn-primary btn-sm" id="todoAlertEnableBtn" type="button">Allow alerts</button>
                     </div>
 
@@ -418,7 +441,7 @@
             <div class="modal-top">
                 <div>
                     <h2 style="margin:0;">Upcoming Reminders — Daily digest</h2>
-                    <p class="helper">Email + optional browser alert every morning at 7:00 AM (your timezone). Lists your upcoming reminders only — not todos. <strong>Email-এর জন্য ইন্টারনেট লাগবে;</strong> বাকি অ্যাপ অফলাইনে চলে।</p>
+                    <p class="helper">Email + optional browser alert every morning at 7:00 AM (your timezone). Lists your upcoming reminders only — not todos. <strong>Email requires an internet connection;</strong> the rest of the app works offline.</p>
                 </div>
                 <button class="btn btn-danger" id="notifSettingsClose" type="button">Close</button>
             </div>
@@ -448,12 +471,23 @@
         </div>
     </div>
 
+    <div class="modal confirm-modal" id="deleteReminderConfirmModal" role="dialog" aria-labelledby="deleteReminderConfirmTitle" aria-modal="true">
+        <div class="modal-card confirm-modal-card">
+            <h2 class="confirm-modal-title" id="deleteReminderConfirmTitle">Delete reminder?</h2>
+            <p class="confirm-modal-message">Are you sure you want to delete this reminder?</p>
+            <div class="confirm-modal-actions">
+                <button class="btn btn-ghost" id="deleteReminderNoBtn" type="button">No</button>
+                <button class="btn btn-danger" id="deleteReminderYesBtn" type="button">Yes</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal daily-plan-modal" id="dailyPlanModal">
         <div class="modal-card daily-plan-modal-card">
             <div class="modal-top">
                 <div>
                     <h2 style="margin:0;" id="dailyPlanModalTitle">Daily plan</h2>
-                    <p class="helper" id="dailyPlanModalSub">Add Reminder-এর পর জিজ্ঞেস করা হয়।</p>
+                    <p class="helper" id="dailyPlanModalSub">Shown after you add a reminder.</p>
                 </div>
                 <button class="btn btn-danger" id="dailyPlanModalClose" type="button">Close</button>
             </div>
@@ -462,11 +496,11 @@
                 <fieldset class="daily-plan-choices">
                     <label class="daily-plan-choice">
                         <input type="radio" name="dailyPlanChoice" value="yes" />
-                        <span><strong>Yes</strong> — প্রতিদিন Reading, Writing, Listening, Speaking (৬০ দিন)</span>
+                        <span><strong>Yes</strong> — daily Reading, Writing, Listening, Speaking (60 days)</span>
                     </label>
                     <label class="daily-plan-choice">
                         <input type="radio" name="dailyPlanChoice" value="no" checked />
-                        <span><strong>No</strong> — শুধু সাধারণ reminder</span>
+                        <span><strong>No</strong> — reminder only, no daily plan</span>
                     </label>
                 </fieldset>
                 <div class="daily-plan-modal-actions">
@@ -487,7 +521,7 @@
                             <input id="reminderStudyCheck" type="time" value="20:00" />
                         </div>
                     </div>
-                    <p class="helper study-plan-hint">Duration = Start date থেকে End date পর্যন্ত (form-এ দেওয়া)।</p>
+                    <p class="helper study-plan-hint">Duration = from Start date through End date (from the form).</p>
                     <div class="study-plan-items-head">
                         <span>Daily tasks</span>
                         <button class="btn btn-sm" id="reminderStudyIeltsBtn" type="button">IELTS template</button>
@@ -668,7 +702,7 @@
 
     <div class="install-banner" id="installBanner" hidden>
         <div class="install-banner-inner">
-            <p><strong>Myndly ইনস্টল করুন</strong> — অফলাইনে ব্যবহার করুন, হোম স্ক্রিনে রাখুন।</p>
+            <p><strong>Install Myndly</strong> — use offline and keep it on your home screen.</p>
             <div class="install-banner-actions">
                 <button class="btn btn-primary btn-sm" id="installAppBtn" type="button">Install app</button>
                 <button class="btn btn-ghost btn-sm" id="installDismissBtn" type="button">Later</button>

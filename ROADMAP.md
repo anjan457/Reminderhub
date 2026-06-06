@@ -3,16 +3,16 @@
 ## Cloud + Auth + Email Notifications
 
 ### Goal
-- Data cloud এ save হবে
-- Same account দিয়ে যেকোনো device এ same data দেখাবে
-- Browser বন্ধ থাকলেও email এ reminder পাবে
+- Data will be saved in the cloud
+- Same account will show the same data on any device
+- Reminder emails even when the browser is closed
 
 ---
 
-### Stack (সব free tier)
+### Stack (all free tier)
 
-| Service | কাজ |
-|---------|-----|
+| Service | Role |
+|---------|------|
 | **Supabase** | Database + Google Auth |
 | **Resend** | Email notification |
 | **Netlify** | Hosting + Serverless Functions |
@@ -21,13 +21,13 @@
 
 ### Features
 
-1. **Google Login** — Supabase Auth দিয়ে Google account এ sign in
-2. **Cloud Sync** — Reminders ও Todos Supabase database এ save
-3. **Multi-device** — same Google account = same data সব জায়গায়
-4. **Email Notifications** — browser বন্ধ থাকলেও Resend দিয়ে email আসবে
-5. **Scheduled Checks** — Netlify Scheduled Functions প্রতি ঘণ্টায় check করবে
+1. **Google Login** — Sign in with Google via Supabase Auth
+2. **Cloud Sync** — Save reminders and todos in Supabase database
+3. **Multi-device** — Same Google account = same data everywhere
+4. **Email Notifications** — Emails via Resend even when the browser is closed
+5. **Scheduled Checks** — Netlify Scheduled Functions check every hour
 
 ---
 
 ### Current Limitation
-এখন সব data শুধু browser এর `localStorage` এ — browser বা device বদলালে data থাকে না।
+All data is only in the browser's `localStorage` — changing browser or device loses the data.

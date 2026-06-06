@@ -1436,6 +1436,18 @@ function sortReminders() {
     });
 }
 
+/** After delete/unpin: Pin 1,2,3 → delete 1 → former 2 becomes 1, etc. */
+function renumberReminderPins() {
+    var pinned = reminders.filter(function (r) {
+        var n = Number(r.pinOrder);
+        return Number.isFinite(n) && n >= 1;
+    });
+    pinned.sort(function (a, b) { return Number(a.pinOrder) - Number(b.pinOrder); });
+    pinned.forEach(function (r, index) {
+        r.pinOrder = index + 1;
+    });
+}
+
 function sortDailyTasks() {
     dailyTasks.sort(function (a, b) { return new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time); });
 }
@@ -1605,8 +1617,31 @@ function deleteDailyTask(id) {
     renderAll();
 }
 
+var pendingDeleteReminderId = null;
+
+function openDeleteReminderConfirm(id) {
+    pendingDeleteReminderId = id;
+    var modalEl = document.getElementById('deleteReminderConfirmModal');
+    if (modalEl) modalEl.classList.add('open');
+}
+
+function closeDeleteReminderConfirm() {
+    pendingDeleteReminderId = null;
+    var modalEl = document.getElementById('deleteReminderConfirmModal');
+    if (modalEl) modalEl.classList.remove('open');
+}
+
+function confirmDeleteReminderYes() {
+    if (pendingDeleteReminderId == null) return;
+    var id = pendingDeleteReminderId;
+    closeDeleteReminderConfirm();
+    deleteReminder(id);
+}
+
 function deleteReminder(id) {
     reminders = reminders.filter(function (reminder) { return reminder.id !== id; });
+    renumberReminderPins();
+    sortReminders();
     saveReminders();
     renderAll();
 }
@@ -1649,10 +1684,44 @@ function getCountdownParts(targetISO) {
     return { expired: false, days: days, hours: hours, minutes: minutes, seconds: seconds };
 }
 
+const PRIORITY_LEVELS = ['High', 'Medium', 'Low'];
+
 function priorityBadge(priority) {
     if (priority === 'High') return '🔥 High';
     if (priority === 'Low') return '🌿 Low';
     return '⚡ Medium';
+}
+
+function normalizePriorityValue(value) {
+    var p = String(value || 'Medium');
+    return PRIORITY_LEVELS.indexOf(p) >= 0 ? p : 'Medium';
+}
+
+function buildPrioritySelectHtml(current, onchangeHandler, extraClass) {
+    var pri = normalizePriorityValue(current);
+    var cls = 'priority-select' + (extraClass ? ' ' + extraClass : '');
+    return '<select class="' + cls + '" aria-label="Priority" onchange="' + onchangeHandler + '">' +
+        PRIORITY_LEVELS.map(function (level) {
+            return '<option value="' + level + '"' + (pri === level ? ' selected' : '') + '>' + priorityBadge(level) + '</option>';
+        }).join('') +
+        '</select>';
+}
+
+function quickSetReminderPriority(id, value) {
+    var target = reminders.find(function (r) { return r.id === id; });
+    if (!target) return;
+    target.priority = normalizePriorityValue(value);
+    saveReminders();
+    renderAll();
+}
+
+function quickSetTodoPriority(id, value) {
+    var target = todos.find(function (t) { return t.id === id; });
+    if (!target) return;
+    target.priority = normalizePriorityValue(value);
+    saveTodos();
+    renderTodos();
+    updateStats();
 }
 
 function formatDate(dateString) {
@@ -2027,7 +2096,7 @@ function renderReminderStudyPlanBlock(reminder) {
             '<div class="reminder-study-field"><span class="reminder-study-field-label">Evening</span>' +
             '<input type="time" class="reminder-study-evening" value="' + escapeHTML(sp.checkTime) + '" /></div>' +
             '</div>' +
-            '<p class="helper reminder-study-edit-hint">☑️ = আজকের কাজ সম্পন্ন · নাম/সময় এডিট করুন</p>' +
+            '<p class="helper reminder-study-edit-hint">☑️ = mark today\'s task done · edit names and times</p>' +
             '<div class="reminder-study-edit-items study-plan-items-editor">' + itemsRows +
             '<button class="btn btn-sm reminder-study-add-row" type="button">+ Add task</button></div>' +
             '<div class="reminder-study-edit-actions">' +
@@ -2402,8 +2471,9 @@ function renderReminderCard(reminder) {
         '</div>' +
         '<div class="icon-btns">' +
         doneBtn +
+        buildPrioritySelectHtml(reminder.priority, 'quickSetReminderPriority(' + reminder.id + ', this.value)', 'reminder-priority-select') +
         '<input class="pin-input" type="number" min="1" placeholder="Pin"' + pinValue + ' onchange="quickSetPin(' + reminder.id + ', this.value)" />' +
-        '<button class="btn btn-danger" type="button" onclick="deleteReminder(' + reminder.id + ')">Delete</button>' +
+        '<button class="btn btn-danger" type="button" onclick="openDeleteReminderConfirm(' + reminder.id + ')">Delete</button>' +
         '</div>' +
         '</div>' +
         '</div>' +
@@ -2885,7 +2955,7 @@ todayClearBtn?.addEventListener('click', function () {
         alert('No completed tasks for today.');
         return;
     }
-    var ok = confirm('আজকের completed task গুলো delete করতে চান?');
+    var ok = confirm('Delete today\'s completed tasks?');
     if (!ok) return;
     clearTodayCompletedTasks();
 });
@@ -4370,6 +4440,7 @@ function initNotes() {
    Global exports
 ════════════════════════════════════════ */
 window.deleteReminder = deleteReminder;
+window.openDeleteReminderConfirm = openDeleteReminderConfirm;
 window.toggleTodo = toggleTodo;
 window.deleteTodo = deleteTodo;
 window.selectCalendarDate = selectCalendarDate;
@@ -4378,6 +4449,7 @@ window.deleteDailyTask = deleteDailyTask;
 window.setTheme = setTheme;
 window.toggleDarkMode = toggleDarkMode;
 window.quickSetPin = quickSetPin;
+window.quickSetReminderPriority = quickSetReminderPriority;
 window.toggleReminderComplete = toggleReminderComplete;
 window.toggleReminderStudyEdit = toggleReminderStudyEdit;
 window.saveReminderStudyPlanEdit = saveReminderStudyPlanEdit;
@@ -4417,7 +4489,21 @@ registerServiceWorker();
 initInstallPrompt();
 initOfflineStatus();
 initTodoAlertBanner();
+function initDeleteReminderConfirmModal() {
+    var modalEl = document.getElementById('deleteReminderConfirmModal');
+    var yesBtn = document.getElementById('deleteReminderYesBtn');
+    var noBtn = document.getElementById('deleteReminderNoBtn');
+    if (yesBtn) yesBtn.addEventListener('click', confirmDeleteReminderYes);
+    if (noBtn) noBtn.addEventListener('click', closeDeleteReminderConfirm);
+    if (modalEl) {
+        modalEl.addEventListener('click', function (e) {
+            if (e.target === modalEl) closeDeleteReminderConfirm();
+        });
+    }
+}
+
 initReminderStudyPlanForm();
+initDeleteReminderConfirmModal();
 initWordGame();
 initMathGame();
 initNotes();

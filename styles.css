@@ -18,12 +18,18 @@
     box-sizing: border-box;
 }
 
+html {
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+}
+
 body {
     margin: 0;
     font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
+    overflow-x: hidden;
     transition: background 0.25s ease, color 0.25s ease;
 }
 
@@ -515,6 +521,8 @@ body {
     max-width: 1400px;
     margin: 0 auto;
     padding: 28px;
+    width: 100%;
+    overflow-x: hidden;
 }
 
 .hero {
@@ -588,38 +596,12 @@ h1 {
     animation: logoEntrance 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .logo-svg {
-    width: 68px;
-    height: 68px;
+    width: 64px;
+    height: 64px;
     display: block;
+    border-radius: 18px;
+    overflow: visible;
 }
-/* Background subtle float */
-.logo-bg {
-    animation: logoBgFloat 6s ease-in-out infinite;
-}
-@keyframes logoBgFloat {
-    0%, 100% { filter: brightness(1); }
-    50%       { filter: brightness(1.12); }
-}
-/* Pulse ring expand-fade */
-.logo-pulse {
-    transform-origin: 32px 32px;
-    animation: logoPulseRing 3s ease-out infinite;
-}
-@keyframes logoPulseRing {
-    0%   { transform: scale(1); opacity: 0.35; }
-    60%  { transform: scale(1.18); opacity: 0; }
-    100% { transform: scale(1.18); opacity: 0; }
-}
-/* M draw-on */
-.logo-m {
-    stroke-dasharray: 105;
-    stroke-dashoffset: 105;
-    animation: logoDrawM 1s cubic-bezier(0.4, 0, 0.2, 1) 0.4s forwards;
-}
-@keyframes logoDrawM {
-    to { stroke-dashoffset: 0; }
-}
-/* Logo entrance */
 @keyframes logoEntrance {
     from { opacity: 0; transform: scale(0.7) rotate(-8deg); }
     to   { opacity: 1; transform: scale(1) rotate(0deg); }
@@ -629,6 +611,8 @@ h1 {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    min-width: 0;
+    flex: 1;
     animation: wordmarkEntrance 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
 }
 @keyframes wordmarkEntrance {
@@ -637,14 +621,16 @@ h1 {
 }
 .myndly-name {
     margin: 0;
-    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-size: clamp(1.65rem, 8vw, 3.2rem);
     font-weight: 800;
     letter-spacing: -0.04em;
     background: linear-gradient(135deg, var(--primary) 0%, #a855f7 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    line-height: 1;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 .myndly-tagline {
     margin: 0;
@@ -735,22 +721,32 @@ select,
 
 .panel {
     padding: 22px;
+    max-width: 100%;
+    overflow: visible;
 }
 
 .panel-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
     margin-bottom: 20px;
     padding-bottom: 16px;
     border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+
+.panel-title {
+    min-width: 0;
+    flex: 1 1 12rem;
 }
 .reminder-header-actions {
     display: flex;
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
+    flex-wrap: wrap;
+    max-width: 100%;
 }
 .reminder-see-all-btn {
     padding: 9px 20px;
@@ -766,6 +762,9 @@ select,
     font-size: 1.15rem;
     font-weight: 800;
     letter-spacing: -0.02em;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .panel-title p {
@@ -774,6 +773,8 @@ select,
     font-size: 0.84rem;
     font-weight: 400;
     line-height: 1.4;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .btn,
@@ -950,6 +951,8 @@ textarea {
     color: var(--text);
     font-size: 0.95rem;
     font-weight: 500;
+    overflow-wrap: anywhere;
+    word-break: break-word;
     line-height: 1.6;
     padding: 10px 14px;
     background: var(--panel-soft);
@@ -965,6 +968,8 @@ textarea {
     background: var(--panel-soft);
     white-space: nowrap;
     color: var(--primary-strong);
+    max-width: 100%;
+    overflow-wrap: anywhere;
 }
 
 .reminder-card h3 {
@@ -972,9 +977,12 @@ textarea {
     font-size: 1.35rem;
     font-weight: 800;
     letter-spacing: -0.02em;
-    line-height: 1.2;
+    line-height: 1.25;
     color: var(--text);
     text-transform: uppercase;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    hyphens: auto;
 }
 
 .reminder-card p {
@@ -1063,6 +1071,28 @@ textarea {
     border: 1px solid var(--border);
     background: var(--panel-soft);
     color: var(--text);
+}
+
+.priority-select {
+    width: auto;
+    min-width: 7.5rem;
+    max-width: 9.5rem;
+    padding: 8px 28px 8px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel-soft);
+    color: var(--text);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: none;
+}
+.priority-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.todo-meta-line .todo-priority-select {
+    flex-shrink: 0;
 }
 
 .calendar-header {
@@ -1493,11 +1523,21 @@ textarea {
 
 @media (max-width: 760px) {
     .shell {
-        padding: 16px;
+        padding: 14px 12px;
+    }
+
+    .hero-card,
+    .panel {
+        padding: 16px 14px;
     }
 
     .theme-menu-wrap {
         justify-content: flex-end;
+    }
+
+    .myndly-brand {
+        flex-wrap: wrap;
+        gap: 12px;
     }
 
     .stats,
@@ -1510,10 +1550,98 @@ textarea {
 
     .reminder-card {
         grid-template-columns: 1fr;
+        padding: 14px 12px;
+        gap: 12px;
+    }
+
+    .reminder-header-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .reminder-card h3 {
+        font-size: 1.05rem;
+        text-transform: none;
+    }
+
+    .reminder-meta span {
+        white-space: normal;
+        max-width: 100%;
+    }
+
+    .badge,
+    .repeat-badge,
+    .study-plan-badge {
+        white-space: normal;
+    }
+
+    .swipe-wrapper,
+    .swipe-content {
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .mini-countdown {
+        width: 100%;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .unit {
+        min-width: 0;
+        padding: 8px 4px;
+    }
+
+    .unit strong {
+        font-size: 1.05rem;
+    }
+
+    .helper,
+    .study-plan-hint,
+    .label-optional {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+
+    .form-group label {
+        overflow-wrap: anywhere;
+    }
+
+    .priority-select {
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .study-plan-item-row,
+    .reminder-study-edit-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .study-plan-check,
+    .reminder-study-check {
+        align-items: flex-start;
+        min-width: 0;
+    }
+
+    .study-plan-check span,
+    .reminder-study-check span {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        min-width: 0;
     }
 }
 
 @media (max-width: 520px) {
+
+    .shell {
+        padding: 10px 8px;
+    }
+
+    .top-action-row {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
 
     .stats,
     .clock,
@@ -1534,6 +1662,40 @@ textarea {
         align-items: stretch;
     }
 
+    .panel-title {
+        flex: 1 1 100%;
+    }
+
+    .reminder-header-actions .btn {
+        flex: 1 1 calc(50% - 4px);
+        min-width: 0;
+        white-space: normal;
+        text-align: center;
+        font-size: 0.78rem;
+        padding: 8px 10px;
+    }
+
+    .reminder-see-all-btn {
+        flex: 1 1 100%;
+        white-space: normal;
+    }
+
+    .icon-btns .btn,
+    .icon-btns .priority-select,
+    .icon-btns .pin-input {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    h1 {
+        font-size: clamp(1.5rem, 9vw, 2.2rem);
+    }
+
+    .modal-card {
+        width: calc(100vw - 20px);
+        max-width: calc(100vw - 20px);
+        margin: 10px;
+    }
 }
 
 
@@ -2285,6 +2447,8 @@ textarea {
     position: relative;
     overflow: hidden;
     border-radius: 12px;
+    max-width: 100%;
+    min-width: 0;
 }
 .swipe-delete-reveal {
     position: absolute;
@@ -2313,6 +2477,8 @@ textarea {
     transition: transform 0.2s ease;
     background: inherit;
     border-radius: 12px;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .todo-fly-ghost {
@@ -3226,8 +3392,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 }
 
 /* Panel header animated underline on hover */
-.panel { overflow: hidden; }
-.panel-header { position: relative; padding-bottom: 14px; }
+.panel-header { position: relative; }
 .panel-header::after {
     content: '';
     position: absolute;
@@ -3366,6 +3531,34 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
     justify-content: flex-end;
     margin-top: 1.25rem;
     flex-wrap: wrap;
+}
+
+.confirm-modal-card {
+    max-width: 22rem;
+    padding: 1.35rem 1.5rem 1.25rem;
+    text-align: center;
+}
+.confirm-modal-title {
+    margin: 0 0 0.65rem;
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+.confirm-modal-message {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.92rem;
+    line-height: 1.45;
+}
+.confirm-modal-actions {
+    display: flex;
+    gap: 0.6rem;
+    justify-content: center;
+    margin-top: 1.35rem;
+    flex-wrap: wrap;
+}
+.confirm-modal-actions .btn {
+    min-width: 5.5rem;
 }
 .reminder-study-plan-fields {
     padding: 0.25rem 0 0;
