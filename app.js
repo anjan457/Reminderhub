@@ -147,12 +147,91 @@ function readStorageString(key, fallback) {
 function saveReminders() {
     localStorage.setItem(STORAGE_KEYS.reminders, JSON.stringify(reminders));
     pushStateToOfflineStore();
+    scheduleCloudPush();
 }
 function saveTodos() {
     localStorage.setItem(STORAGE_KEYS.todos, JSON.stringify(todos));
     pushStateToOfflineStore();
+    scheduleCloudPush();
 }
-function saveDailyTasks() { localStorage.setItem(STORAGE_KEYS.dailyTasks, JSON.stringify(dailyTasks)); }
+function saveDailyTasks() {
+    localStorage.setItem(STORAGE_KEYS.dailyTasks, JSON.stringify(dailyTasks));
+    scheduleCloudPush();
+}
+
+function scheduleCloudPush() {
+    if (!window.MyndlyApiSync || !MyndlyApiSync.isEnabled()) return;
+    MyndlyApiSync.schedulePush(function () {
+        return {
+            reminders: reminders,
+            todos: todos,
+            dailyTasks: dailyTasks,
+            updatedAt: Date.now()
+        };
+    });
+}
+
+async function runCloudSync() {
+    if (!window.MyndlyApiSync) return false;
+    var result = await MyndlyApiSync.pullAndMerge({
+        getLocal: function () {
+            return {
+                reminders: reminders,
+                todos: todos,
+                dailyTasks: dailyTasks,
+                updatedAt: Date.now()
+            };
+        },
+        applyRemote: applyCloudState
+    });
+    if (result.appliedRemote) {
+        sortReminders();
+        sortDailyTasks();
+        renderAll();
+        updateStats();
+    }
+    return result.appliedRemote;
+}
+
+function updateAuthStatusUI() {
+    var el = document.getElementById('offlineStatus');
+    var loggedIn = window.MyndlyAuth && MyndlyAuth.isLoggedIn();
+
+    if (window.MyndlyAuthUI) {
+        MyndlyAuthUI.updateAccountButton();
+        MyndlyAuthUI.updateProfileSection();
+    }
+    if (!el) return;
+
+    if (!navigator.onLine) {
+        el.textContent = 'Offline — all data saved on this device';
+        el.hidden = false;
+        return;
+    }
+    if (loggedIn) {
+        var user = MyndlyAuth.getUser();
+        el.textContent = 'Signed in as ' + (user && user.email ? user.email : 'your account') + ' — cloud sync on';
+        el.hidden = false;
+        return;
+    }
+    if (window.MyndlyApiSync && MyndlyApiSync.getApiBase()) {
+        el.textContent = 'Sign in to sync your data across devices';
+        el.hidden = false;
+        return;
+    }
+    el.textContent = '';
+    el.hidden = true;
+}
+
+function applyCloudState(data) {
+    reminders = normalizeReminders(data.reminders || []);
+    todos = normalizeTodos(data.todos || []);
+    dailyTasks = normalizeDailyTasks(data.dailyTasks || []);
+    localStorage.setItem(STORAGE_KEYS.reminders, JSON.stringify(reminders));
+    localStorage.setItem(STORAGE_KEYS.todos, JSON.stringify(todos));
+    localStorage.setItem(STORAGE_KEYS.dailyTasks, JSON.stringify(dailyTasks));
+    pushStateToOfflineStore();
+}
 
 function pushStateToOfflineStore() {
     if (!window.MyndlySync) return Promise.resolve();
@@ -174,8 +253,9 @@ function pushStateToOfflineStore() {
 
 function mergeTodosFromServiceWorker(updatedTodos) {
     if (!Array.isArray(updatedTodos)) return;
-    todos = normalizeTodos(updatedTodos);
+    todos = normalizeTodos(updatedTodos); 
     localStorage.setItem(STORAGE_KEYS.todos, JSON.stringify(todos));
+    scheduleCloudPush();
     renderTodos();
     updateStats();
 }
@@ -1784,6 +1864,7 @@ function maybeNotifyTodos() {
         todos = normalizeTodos(result.todos);
         localStorage.setItem(STORAGE_KEYS.todos, JSON.stringify(todos));
         pushStateToOfflineStore();
+        scheduleCloudPush();
         renderTodos();
     }
 }
@@ -2910,7 +2991,7 @@ function clearTodayCompletedTasks() {
     var todayISO = getTodayISO();
     todos = todos.filter(function (todo) {
         return !(todo.date === todayISO && todo.completed);
-    });
+    });  
     dailyTasks = dailyTasks.filter(function (task) {
         return !(task.date === todayISO && task.completed);
     });
@@ -3492,6 +3573,13 @@ async function triggerInstallFlow() {
 
 function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
+    // Skip SW on local dev — avoids cached old auth.js calling :5001 (CORS errors)
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+            regs.forEach(function (r) { r.unregister(); });
+        }).catch(function () { /* ignore */ });
+        return;
+    }
     navigator.serviceWorker.register('./sw.js', { scope: './' }).then(function (reg) {
         // If a new SW is already waiting, activate it silently
         if (reg.waiting) {
@@ -3574,15 +3662,9 @@ function initInstallPrompt() {
 }
 
 function initOfflineStatus() {
-    var el = document.getElementById('offlineStatus');
-    if (!el) return;
-    function update() {
-        el.textContent = navigator.onLine ? '' : 'Offline — all data saved on this device';
-        el.hidden = navigator.onLine;
-    }
-    window.addEventListener('online', update);
-    window.addEventListener('offline', update);
-    update();
+    window.addEventListener('online', updateAuthStatusUI);
+    window.addEventListener('offline', updateAuthStatusUI);
+    updateAuthStatusUI();
 }
 
 function initTodoAlertBanner() {
@@ -4463,32 +4545,73 @@ window.openNoteEditor = openNoteEditor;
 /* ════════════════════════════════════════
    Init
 ════════════════════════════════════════ */
-if (todoDateInput) todoDateInput.value = getTodayISO();
-var reminderDateInput = document.getElementById('date');
-var reminderEndDateInput = document.getElementById('endDate');
-if (reminderDateInput) reminderDateInput.value = getTodayISO();
-if (reminderEndDateInput) reminderEndDateInput.value = addDaysISO(getTodayISO(), 59);
-loadCustomCategories();
-migrateLegacyStudyPlans();
-sortReminders();
-sortDailyTasks();
-applySavedTheme();
-initCategoryPickers();
-initFilterChips();
-fillNotificationSettingsForm();
-showTodayLine();
-updateShowCompletedBtn();
-renderAll();
-refreshReminderCountdowns();
-maybeNotifyTodos();
-maybeNotifyStudyPlans();
-checkDailyDigest();
-updatePomodoroDisplay();
-initAmbientButtons();
-registerServiceWorker();
-initInstallPrompt();
-initOfflineStatus();
-initTodoAlertBanner();
+async function bootstrapApp() {
+    if (todoDateInput) todoDateInput.value = getTodayISO();
+    var reminderDateInput = document.getElementById('date');
+    var reminderEndDateInput = document.getElementById('endDate');
+    if (reminderDateInput) reminderDateInput.value = getTodayISO();
+    if (reminderEndDateInput) reminderEndDateInput.value = addDaysISO(getTodayISO(), 59);
+    loadCustomCategories();
+    migrateLegacyStudyPlans();
+
+    if (window.MyndlyAuthUI) {
+        MyndlyAuthUI.init({
+            onAuthChange: async function (loggedIn) {
+                updateAuthStatusUI();
+                if (loggedIn) await runCloudSync();
+            }
+        });
+    }
+
+    if (window.MyndlyAuth) {
+        await MyndlyAuth.restoreSession();
+        updateAuthStatusUI();
+    }
+
+    if (window.MyndlyApiSync && MyndlyApiSync.isEnabled()) {
+        await runCloudSync();
+    }
+
+    sortReminders();
+    sortDailyTasks();
+    applySavedTheme();
+    initCategoryPickers();
+    initFilterChips();
+    fillNotificationSettingsForm();
+    showTodayLine();
+    updateShowCompletedBtn();
+    renderAll();
+    refreshReminderCountdowns();
+    maybeNotifyTodos();
+    maybeNotifyStudyPlans();
+    checkDailyDigest();
+    updatePomodoroDisplay();
+    initAmbientButtons();
+    registerServiceWorker();
+    initInstallPrompt();
+    initOfflineStatus();
+    initTodoAlertBanner();
+    initReminderStudyPlanForm();
+    initDeleteReminderConfirmModal();
+    initWordGame();
+    initMathGame();
+    initNotes();
+    pushStateToOfflineStore();
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+            maybeNotifyTodos();
+            maybeNotifyStudyPlans();
+            pushStateToOfflineStore();
+            scheduleCloudPush();
+        }
+    });
+    setInterval(refreshReminderCountdowns, 1000);
+    setInterval(maybeNotifyTodos, 15000);
+    setInterval(maybeNotifyStudyPlans, 60000);
+    setInterval(checkDailyDigest, 60000);
+    runAppTests();
+}
+
 function initDeleteReminderConfirmModal() {
     var modalEl = document.getElementById('deleteReminderConfirmModal');
     var yesBtn = document.getElementById('deleteReminderYesBtn');
@@ -4502,21 +4625,4 @@ function initDeleteReminderConfirmModal() {
     }
 }
 
-initReminderStudyPlanForm();
-initDeleteReminderConfirmModal();
-initWordGame();
-initMathGame();
-initNotes();
-pushStateToOfflineStore();
-document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') {
-        maybeNotifyTodos();
-        maybeNotifyStudyPlans();
-        pushStateToOfflineStore();
-    }
-});
-setInterval(refreshReminderCountdowns, 1000);
-setInterval(maybeNotifyTodos, 15000);
-setInterval(maybeNotifyStudyPlans, 60000);
-setInterval(checkDailyDigest, 60000);
-runAppTests();
+bootstrapApp();

@@ -1,10 +1,10 @@
 importScripts('./sync-store.js');
 
-const CACHE_NAME = 'myndly-offline-v9';
-const APP_SHELL = ['./', './index.html', './styles.css', './app.js', './sync-store.js', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
+const CACHE_NAME = 'myndly-offline-v10';
+const APP_SHELL = ['./', './index.html', './styles.css', './app.js', './auth.js', './auth-ui.js', './api-sync.js', './sync-store.js', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 const TODO_CHECK_MS = 30000;
 // These files always try network first so updates show immediately
-const NETWORK_FIRST = ['index.html', 'app.js', 'styles.css', 'sync-store.js'];
+const NETWORK_FIRST = ['index.html', 'app.js', 'auth.js', 'auth-ui.js', 'api-sync.js', 'styles.css', 'sync-store.js'];
 
 let todoCheckTimer = null;
 
