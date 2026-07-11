@@ -19,8 +19,7 @@
         <div class="top-action-row">
             <!-- Quick dark mode toggle button (Feature 1) -->
             <button class="quick-dark-btn" id="quickDarkBtn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
-            <button class="account-btn" id="accountBtn" type="button" title="Sign in to sync your data">Sign in</button>
-            <button class="btn btn-ghost btn-sm account-logout-btn" id="accountLogoutBtn" type="button" hidden>Sign out</button>
+            <button class="account-btn" id="accountBtn" type="button" title="Profile & account">Sign in</button>
 
             <div class="theme-menu-wrap top-action-wrap">
                 <button class="theme-menu-btn theme-picker-btn" id="themePickerBtn" type="button" aria-label="Open theme menu" aria-expanded="false" aria-haspopup="true">🎨</button>
@@ -713,6 +712,55 @@
         </div>
     </div>
 
+    <div class="modal profile-modal" id="profileModal">
+        <div class="modal-card profile-card">
+            <div class="modal-top">
+                <div>
+                    <h2 style="margin:0;">Profile</h2>
+                    <p class="helper">Your account and cloud sync</p>
+                </div>
+                <button class="btn btn-danger" id="profileCloseBtn" type="button">Close</button>
+            </div>
+            <div class="profile-body profile-body--signed-in" id="profileSignedIn" hidden>
+                <div class="profile-avatar-wrap">
+                    <img class="profile-avatar-img" id="profileAvatarImg" alt="" hidden />
+                    <div class="profile-avatar" id="profileAvatar" aria-hidden="true">?</div>
+                </div>
+                <p class="profile-meta" id="profileSyncStatus">Cloud sync active</p>
+                <p class="profile-meta" id="profileMemberSince" hidden></p>
+                <form class="profile-form" id="profileForm">
+                    <div class="form-group">
+                        <label for="profileDisplayName">Display name</label>
+                        <input id="profileDisplayName" type="text" maxlength="80" placeholder="Your name" autocomplete="name" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileEmailReadonly">Email</label>
+                        <input id="profileEmailReadonly" type="email" readonly disabled />
+                    </div>
+                    <div class="form-group">
+                        <label for="profilePhone">Phone number</label>
+                        <input id="profilePhone" type="tel" maxlength="30" placeholder="+880 1XXX XXXXXX" autocomplete="tel" />
+                    </div>
+                    <div class="form-group">
+                        <label for="profileAvatarUrl">Profile image URL</label>
+                        <input id="profileAvatarUrl" type="url" maxlength="500" placeholder="https://example.com/photo.jpg" />
+                        <p class="helper">Paste a link to your photo (HTTPS recommended)</p>
+                    </div>
+                    <p class="auth-error profile-save-error" id="profileSaveError" hidden></p>
+                    <button class="btn btn-primary profile-save-btn" type="submit">Save profile</button>
+                </form>
+                <button class="btn btn-danger profile-logout-btn" id="profileLogoutBtn" type="button">Sign out</button>
+            </div>
+            <div class="profile-body profile-body--signed-out" id="profileSignedOut">
+                <p class="helper">Sign in to save reminders and todos to the cloud and use them on any device.</p>
+                <div class="profile-actions">
+                    <button class="btn btn-primary" id="profileSignInBtn" type="button">Sign in</button>
+                    <button class="btn btn-ghost" id="profileSignUpBtn" type="button">Create account</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal auth-modal" id="authModal">
         <div class="modal-card auth-card">
             <div class="modal-top">
@@ -756,6 +804,7 @@
         </div>
     </div>
 
+    <script src="port-guard.js"></script>
     <script src="sync-store.js"></script>
     <script src="auth.js"></script>
     <script src="api-sync.js"></script>

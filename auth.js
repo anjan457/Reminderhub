@@ -36,8 +36,18 @@
     return {
       id: String(user.id || user._id || ''),
       email: user.email || '',
-      name: user.name || ''
+      name: user.name || '',
+      phone: user.phone || '',
+      avatarUrl: user.avatarUrl || '',
+      createdAt: user.createdAt || null
     };
+  }
+
+  function saveUserProfile(user) {
+    var token = getToken();
+    if (!token) return;
+    localStorage.setItem(STORAGE_USER, JSON.stringify(normalizeUser(user)));
+    cachedUser = normalizeUser(user);
   }
 
   function saveSession(token, user) {
@@ -169,6 +179,21 @@
     clearSession();
   }
 
+  async function updateProfile(fields) {
+    var data = await apiRequest('/api/auth/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(fields || {})
+    });
+    saveUserProfile(data);
+    return normalizeUser(data);
+  }
+
+  async function fetchProfile() {
+    var data = await apiRequest('/api/auth/me', { method: 'GET' });
+    saveUserProfile(data);
+    return normalizeUser(data);
+  }
+
   global.MyndlyAuth = {
     getApiBase: getApiBase,
     isLoggedIn: isLoggedIn,
@@ -178,6 +203,8 @@
     register: register,
     login: login,
     restoreSession: restoreSession,
-    logout: logout
+    logout: logout,
+    updateProfile: updateProfile,
+    fetchProfile: fetchProfile
   };
 })(typeof window !== 'undefined' ? window : global);

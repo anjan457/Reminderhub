@@ -28,6 +28,7 @@
       "auth.js",
       "auth-ui.js",
       "api-sync.js",
+      "port-guard.js",
       "sw.js",
       "sync-store.js",
       "manifest.json",

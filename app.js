@@ -194,12 +194,13 @@ async function runCloudSync() {
 }
 
 function updateAuthStatusUI() {
-    var logoutBtn = document.getElementById('accountLogoutBtn');
     var el = document.getElementById('offlineStatus');
     var loggedIn = window.MyndlyAuth && MyndlyAuth.isLoggedIn();
 
-    if (logoutBtn) logoutBtn.hidden = !loggedIn;
-    if (window.MyndlyAuthUI) MyndlyAuthUI.updateAccountButton();
+    if (window.MyndlyAuthUI) {
+        MyndlyAuthUI.updateAccountButton();
+        MyndlyAuthUI.updateProfileSection();
+    }
     if (!el) return;
 
     if (!navigator.onLine) {
