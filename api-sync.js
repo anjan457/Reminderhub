@@ -8,12 +8,14 @@
   var getStateFn = null;
 
   function getApiBase() {
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+      return location.origin;
+    }
     var meta = document.querySelector('meta[name="myndly-api"]');
     if (meta && meta.content) {
-      return meta.content.trim().replace(/\/$/, '');
-    }
-    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-      return 'http://localhost:5001';
+      var value = meta.content.trim();
+      if (value === 'same-origin' || value === '/') return location.origin;
+      if (value && value !== 'same-origin') return value.replace(/\/$/, '');
     }
     return '';
   }

@@ -27,7 +27,7 @@
     if (registerForm) registerForm.hidden = isLogin;
     if (loginTab) loginTab.classList.toggle('active', isLogin);
     if (registerTab) registerTab.classList.toggle('active', !isLogin);
-    if (title) title.textContent = isLogin ? 'Sign in' : 'Create account';
+    if (title) title.textContent = isLogin ? 'Sign in' : 'Sign up';
     setAuthError('');
   }
 
@@ -67,6 +67,18 @@
     }
   }
 
+  function friendlyFetchError(err) {
+    if (location.hostname.endsWith('github.io')) {
+      return 'Sign in does not work on GitHub Pages. Use http://localhost:3000 with notify_backend running.';
+    }
+    if (!err || !err.message) return 'Something went wrong';
+    if (err.message === 'Failed to fetch' || /CORS/i.test(err.message)) {
+      var api = (global.MyndlyAuth && MyndlyAuth.getApiBase()) || location.origin;
+      return 'Backend unreachable. Open ONLY http://localhost:3000 (not GitHub Pages). API should be ' + api + '/api/... — both servers must be running.';
+    }
+    return err.message;
+  }
+
   async function handleLoginSubmit(event) {
     event.preventDefault();
     var email = ($('authLoginEmail') && $('authLoginEmail').value) || '';
@@ -78,7 +90,7 @@
       closeAuthModal();
       notifyAuthChange(true);
     } catch (err) {
-      setAuthError(err.message || 'Sign in failed');
+      setAuthError(friendlyFetchError(err) || 'Sign in failed');
     }
   }
 
@@ -99,7 +111,7 @@
       closeAuthModal();
       notifyAuthChange(true);
     } catch (err) {
-      setAuthError(err.message || 'Registration failed');
+      setAuthError(friendlyFetchError(err) || 'Registration failed');
     }
   }
 

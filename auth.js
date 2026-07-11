@@ -7,15 +7,15 @@
   var cachedUser = null;
 
   function getApiBase() {
-    if (global.MyndlyApiSync && MyndlyApiSync.getApiBase) {
-      return MyndlyApiSync.getApiBase();
+    // Local dev: always same origin (dev-server proxies /api → backend). Never call :5001 directly.
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+      return location.origin;
     }
     var meta = document.querySelector('meta[name="myndly-api"]');
     if (meta && meta.content) {
-      return meta.content.trim().replace(/\/$/, '');
-    }
-    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-      return 'http://localhost:5001';
+      var value = meta.content.trim();
+      if (value === 'same-origin' || value === '/') return location.origin;
+      if (value && value !== 'same-origin') return value.replace(/\/$/, '');
     }
     return '';
   }
@@ -105,8 +105,10 @@
     var base = getApiBase();
     if (!base) throw new Error('API not configured');
 
+    var useCredentials = path === '/api/auth/refresh' || path === '/api/auth/logout';
+
     var res = await fetch(base + path, Object.assign({
-      credentials: 'include'
+      credentials: useCredentials ? 'include' : 'same-origin'
     }, options, {
       headers: authHeaders(options && options.headers)
     }));

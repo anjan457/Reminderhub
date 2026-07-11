@@ -3894,6 +3894,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
     display: grid;
     gap: 12px;
 }
+.auth-form[hidden] {
+    display: none !important;
+}
 .auth-submit {
     width: 100%;
     margin-top: 4px;

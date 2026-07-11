@@ -3572,6 +3572,13 @@ async function triggerInstallFlow() {
 
 function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
+    // Skip SW on local dev — avoids cached old auth.js calling :5001 (CORS errors)
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+            regs.forEach(function (r) { r.unregister(); });
+        }).catch(function () { /* ignore */ });
+        return;
+    }
     navigator.serviceWorker.register('./sw.js', { scope: './' }).then(function (reg) {
         // If a new SW is already waiting, activate it silently
         if (reg.waiting) {
