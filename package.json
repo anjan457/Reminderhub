@@ -6,16 +6,8 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "server": "node server/index.js",
-    "dev": "node --watch server/index.js",
-    "dev:server": "node --watch server/index.js",
+    "dev": "npx serve . -l 3000",
     "dist:mac": "electron-builder --mac"
-  },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "mongoose": "^8.9.3"
   },
   "devDependencies": {
     "electron": "^31.7.7",
@@ -31,6 +23,8 @@
       "index.html",
       "styles.css",
       "app.js",
+      "auth.js",
+      "auth-ui.js",
       "api-sync.js",
       "sw.js",
       "sync-store.js",

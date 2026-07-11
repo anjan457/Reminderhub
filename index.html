@@ -12,13 +12,15 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Myndly" />
-    <meta name="myndly-api" content="same-origin" />
+    <meta name="myndly-api" content="http://localhost:5001" />
 </head>
 <body>
     <div class="shell">
         <div class="top-action-row">
             <!-- Quick dark mode toggle button (Feature 1) -->
             <button class="quick-dark-btn" id="quickDarkBtn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
+            <button class="account-btn" id="accountBtn" type="button" title="Sign in to sync your data">Sign in</button>
+            <button class="btn btn-ghost btn-sm account-logout-btn" id="accountLogoutBtn" type="button" hidden>Sign out</button>
 
             <div class="theme-menu-wrap top-action-wrap">
                 <button class="theme-menu-btn theme-picker-btn" id="themePickerBtn" type="button" aria-label="Open theme menu" aria-expanded="false" aria-haspopup="true">🎨</button>
@@ -711,8 +713,53 @@
         </div>
     </div>
 
+    <div class="modal auth-modal" id="authModal">
+        <div class="modal-card auth-card">
+            <div class="modal-top">
+                <div>
+                    <h2 style="margin:0;" id="authModalTitle">Sign in</h2>
+                    <p class="helper">Each email gets its own reminders, todos, and calendar data in the cloud.</p>
+                </div>
+                <button class="btn btn-danger" id="authCloseBtn" type="button">Close</button>
+            </div>
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="authTabLogin" type="button">Sign in</button>
+                <button class="auth-tab" id="authTabRegister" type="button">Register</button>
+            </div>
+            <p class="auth-error" id="authError" hidden></p>
+            <form class="auth-form" id="authLoginForm">
+                <div class="form-group">
+                    <label for="authLoginEmail">Email</label>
+                    <input id="authLoginEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+                </div>
+                <div class="form-group">
+                    <label for="authLoginPassword">Password</label>
+                    <input id="authLoginPassword" type="password" autocomplete="current-password" placeholder="Your password" required />
+                </div>
+                <button class="btn btn-primary auth-submit" type="submit">Sign in</button>
+            </form>
+            <form class="auth-form" id="authRegisterForm" hidden>
+                <div class="form-group">
+                    <label for="authRegisterEmail">Email</label>
+                    <input id="authRegisterEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+                </div>
+                <div class="form-group">
+                    <label for="authRegisterPassword">Password</label>
+                    <input id="authRegisterPassword" type="password" autocomplete="new-password" placeholder="At least 6 characters" minlength="6" required />
+                </div>
+                <div class="form-group">
+                    <label for="authRegisterConfirm">Confirm password</label>
+                    <input id="authRegisterConfirm" type="password" autocomplete="new-password" placeholder="Repeat password" minlength="6" required />
+                </div>
+                <button class="btn btn-primary auth-submit" type="submit">Create account</button>
+            </form>
+        </div>
+    </div>
+
     <script src="sync-store.js"></script>
+    <script src="auth.js"></script>
     <script src="api-sync.js"></script>
+    <script src="auth-ui.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

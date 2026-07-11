@@ -171,6 +171,57 @@ function scheduleCloudPush() {
     });
 }
 
+async function runCloudSync() {
+    if (!window.MyndlyApiSync) return false;
+    var result = await MyndlyApiSync.pullAndMerge({
+        getLocal: function () {
+            return {
+                reminders: reminders,
+                todos: todos,
+                dailyTasks: dailyTasks,
+                updatedAt: Date.now()
+            };
+        },
+        applyRemote: applyCloudState
+    });
+    if (result.appliedRemote) {
+        sortReminders();
+        sortDailyTasks();
+        renderAll();
+        updateStats();
+    }
+    return result.appliedRemote;
+}
+
+function updateAuthStatusUI() {
+    var logoutBtn = document.getElementById('accountLogoutBtn');
+    var el = document.getElementById('offlineStatus');
+    var loggedIn = window.MyndlyAuth && MyndlyAuth.isLoggedIn();
+
+    if (logoutBtn) logoutBtn.hidden = !loggedIn;
+    if (window.MyndlyAuthUI) MyndlyAuthUI.updateAccountButton();
+    if (!el) return;
+
+    if (!navigator.onLine) {
+        el.textContent = 'Offline — all data saved on this device';
+        el.hidden = false;
+        return;
+    }
+    if (loggedIn) {
+        var user = MyndlyAuth.getUser();
+        el.textContent = 'Signed in as ' + (user && user.email ? user.email : 'your account') + ' — cloud sync on';
+        el.hidden = false;
+        return;
+    }
+    if (window.MyndlyApiSync && MyndlyApiSync.getApiBase()) {
+        el.textContent = 'Sign in to sync your data across devices';
+        el.hidden = false;
+        return;
+    }
+    el.textContent = '';
+    el.hidden = true;
+}
+
 function applyCloudState(data) {
     reminders = normalizeReminders(data.reminders || []);
     todos = normalizeTodos(data.todos || []);
@@ -3603,25 +3654,9 @@ function initInstallPrompt() {
 }
 
 function initOfflineStatus() {
-    var el = document.getElementById('offlineStatus');
-    if (!el) return;
-    function update() {
-        if (!navigator.onLine) {
-            el.textContent = 'Offline — all data saved on this device';
-            el.hidden = false;
-            return;
-        }
-        if (window.MyndlyApiSync && MyndlyApiSync.isEnabled()) {
-            el.textContent = 'Cloud sync active';
-            el.hidden = false;
-            return;
-        }
-        el.textContent = '';
-        el.hidden = true;
-    }
-    window.addEventListener('online', update);
-    window.addEventListener('offline', update);
-    update();
+    window.addEventListener('online', updateAuthStatusUI);
+    window.addEventListener('offline', updateAuthStatusUI);
+    updateAuthStatusUI();
 }
 
 function initTodoAlertBanner() {
@@ -4511,18 +4546,22 @@ async function bootstrapApp() {
     loadCustomCategories();
     migrateLegacyStudyPlans();
 
-    if (window.MyndlyApiSync) {
-        await MyndlyApiSync.pullAndMerge({
-            getLocal: function () {
-                return {
-                    reminders: reminders,
-                    todos: todos,
-                    dailyTasks: dailyTasks,
-                    updatedAt: Date.now()
-                };
-            },
-            applyRemote: applyCloudState
+    if (window.MyndlyAuthUI) {
+        MyndlyAuthUI.init({
+            onAuthChange: async function (loggedIn) {
+                updateAuthStatusUI();
+                if (loggedIn) await runCloudSync();
+            }
         });
+    }
+
+    if (window.MyndlyAuth) {
+        await MyndlyAuth.restoreSession();
+        updateAuthStatusUI();
+    }
+
+    if (window.MyndlyApiSync && MyndlyApiSync.isEnabled()) {
+        await runCloudSync();
     }
 
     sortReminders();

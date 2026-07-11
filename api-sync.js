@@ -1,10 +1,7 @@
 /**
- * Cloud sync bridge — localStorage ↔ MongoDB via Express API.
- * Offline-first: local saves always win immediately; cloud push is async + debounced.
+ * Cloud sync bridge — frontend (notify) ↔ notify_backend API.
  */
 (function (global) {
-  var STORAGE_DEVICE_ID = 'rh_device_id';
-  var STORAGE_CLOUD_UPDATED = 'rh_cloud_updated_at';
   var pushTimer = null;
   var pushInFlight = false;
   var pendingPush = false;
@@ -13,40 +10,30 @@
   function getApiBase() {
     var meta = document.querySelector('meta[name="myndly-api"]');
     if (meta && meta.content) {
-      var value = meta.content.trim();
-      if (value === 'same-origin' || value === '/') return location.origin;
-      return value.replace(/\/$/, '');
-    }
-    if (location.port === '3001' || location.port === String(global.__MYNDLY_API_PORT || '')) {
-      return location.origin;
+      return meta.content.trim().replace(/\/$/, '');
     }
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-      return 'http://localhost:3001';
+      return 'http://localhost:5001';
     }
     return '';
   }
 
-  function isEnabled() {
-    return Boolean(getApiBase()) && navigator.onLine !== false;
+  function isLoggedIn() {
+    return global.MyndlyAuth && MyndlyAuth.isLoggedIn();
   }
 
-  function getDeviceId() {
-    try {
-      var existing = localStorage.getItem(STORAGE_DEVICE_ID);
-      if (existing) return existing;
-      var id = (global.crypto && crypto.randomUUID)
-        ? crypto.randomUUID()
-        : 'dev-' + Date.now() + '-' + Math.random().toString(16).slice(2);
-      localStorage.setItem(STORAGE_DEVICE_ID, id);
-      return id;
-    } catch (e) {
-      return 'fallback-device';
-    }
+  function isEnabled() {
+    return Boolean(getApiBase()) && isLoggedIn() && navigator.onLine !== false;
+  }
+
+  function getCloudUpdatedKey() {
+    var user = global.MyndlyAuth && MyndlyAuth.getUser();
+    return user ? 'rh_cloud_updated_at_' + user.id : 'rh_cloud_updated_at';
   }
 
   function getLocalUpdatedAt() {
     try {
-      return Number(localStorage.getItem(STORAGE_CLOUD_UPDATED) || 0);
+      return Number(localStorage.getItem(getCloudUpdatedKey()) || 0);
     } catch (e) {
       return 0;
     }
@@ -54,47 +41,60 @@
 
   function setLocalUpdatedAt(ts) {
     try {
-      localStorage.setItem(STORAGE_CLOUD_UPDATED, String(ts));
+      localStorage.setItem(getCloudUpdatedKey(), String(ts));
     } catch (e) { /* ignore */ }
   }
 
-  function localHasData(state) {
+  function stampItems(items, ts) {
+    return (items || []).map(function (item) {
+      return Object.assign({}, item, { updatedAt: item.updatedAt || ts });
+    });
+  }
+
+  function authHeaders() {
+    if (global.MyndlyAuth) return MyndlyAuth.authHeaders();
+    return { 'Content-Type': 'application/json' };
+  }
+
+  function hasRemoteData(data) {
     return Boolean(
-      (state.reminders && state.reminders.length) ||
-      (state.todos && state.todos.length) ||
-      (state.dailyTasks && state.dailyTasks.length)
+      (data.reminders && data.reminders.length) ||
+      (data.todos && data.todos.length) ||
+      (data.dailyTasks && data.dailyTasks.length)
     );
   }
 
-  async function pushState(state) {
-    if (!isEnabled()) return false;
+  async function syncWithServer(state) {
+    if (!isEnabled()) return null;
 
+    var ts = state.updatedAt || Date.now();
     var payload = {
-      reminders: state.reminders || [],
-      todos: state.todos || [],
-      dailyTasks: state.dailyTasks || [],
-      updatedAt: state.updatedAt || Date.now()
+      reminders: stampItems(state.reminders, ts),
+      todos: stampItems(state.todos, ts),
+      dailyTasks: stampItems(state.dailyTasks, ts)
     };
 
-    var res = await fetch(getApiBase() + '/api/sync/' + encodeURIComponent(getDeviceId()), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+    var res = await fetch(getApiBase() + '/api/sync', {
+      method: 'POST',
+      credentials: 'include',
+      headers: authHeaders(),
       body: JSON.stringify(payload)
     });
 
-    if (!res.ok) throw new Error('Cloud push failed (' + res.status + ')');
+    if (res.status === 401 && global.MyndlyAuth) {
+      MyndlyAuth.logout();
+      throw new Error('Session expired — sign in again');
+    }
+    if (!res.ok) throw new Error('Cloud sync failed (' + res.status + ')');
 
     var data = await res.json();
-    setLocalUpdatedAt(data.updatedAt || payload.updatedAt);
-    return true;
-  }
-
-  async function pullState() {
-    if (!isEnabled()) return null;
-
-    var res = await fetch(getApiBase() + '/api/sync/' + encodeURIComponent(getDeviceId()));
-    if (!res.ok) throw new Error('Cloud pull failed (' + res.status + ')');
-    return res.json();
+    return {
+      reminders: data.reminders || [],
+      todos: data.todos || [],
+      dailyTasks: data.dailyTasks || [],
+      updatedAt: data.syncedAt || ts,
+      hasData: hasRemoteData(data)
+    };
   }
 
   async function flushPush() {
@@ -107,7 +107,7 @@
     pendingPush = false;
 
     try {
-      await pushState(getStateFn());
+      await syncWithServer(getStateFn());
     } catch (err) {
       console.warn('Myndly cloud sync push failed', err);
     } finally {
@@ -117,6 +117,7 @@
   }
 
   function schedulePush(getState) {
+    if (!isLoggedIn()) return;
     getStateFn = getState;
     if (pushTimer) clearTimeout(pushTimer);
     pushTimer = setTimeout(flushPush, 800);
@@ -129,32 +130,27 @@
 
     try {
       var local = opts.getLocal();
-      var localUpdatedAt = getLocalUpdatedAt();
-      var remote = await pullState();
+      var remote = await syncWithServer(local);
 
-      if (remote.hasData && remote.updatedAt > localUpdatedAt) {
+      if (remote) {
         opts.applyRemote(remote);
         setLocalUpdatedAt(remote.updatedAt);
         return { appliedRemote: true };
       }
 
-      if (localHasData(local) && (!remote.hasData || localUpdatedAt > remote.updatedAt)) {
-        await pushState(local);
-      }
-
       return { appliedRemote: false };
     } catch (err) {
-      console.warn('Myndly cloud sync pull failed', err);
+      console.warn('Myndly cloud sync failed', err);
       return { appliedRemote: false, error: err };
     }
   }
 
   global.MyndlyApiSync = {
     isEnabled: isEnabled,
+    isLoggedIn: isLoggedIn,
     getApiBase: getApiBase,
-    getDeviceId: getDeviceId,
     schedulePush: schedulePush,
     pullAndMerge: pullAndMerge,
-    pushState: pushState
+    syncWithServer: syncWithServer
   };
 })(typeof window !== 'undefined' ? window : global);
